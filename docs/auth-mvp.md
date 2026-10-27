@@ -2,7 +2,7 @@
 
 ## Поток
 
-`POST /api/v1/auth/register` принимает email, пароль и роль. Email нормализуется, пароль превращается в Argon2id hash. Обычные роли (`athlete`, `coach`, `judge`) доступны без дополнительного подтверждения. Для роли `federation_admin` нужен код из переменной `ADMIN_REGISTRATION_CODE`: он проверяется только во время регистрации и не хранится в PostgreSQL.
+`POST /api/v1/auth/register` принимает email, пароль, роль, фамилию и имя и обязательное `pd_consent: true` (время согласия сохраняется в `users.pd_consent_at`). Дополнительные роли спортсмена, тренера и судьи пользователь добавляет себе сам через `POST /api/v1/auth/roles`. Email нормализуется, пароль превращается в Argon2id hash. Обычные роли (`athlete`, `coach`, `judge`) доступны без дополнительного подтверждения. Для роли `federation_admin` нужен код из переменной `ADMIN_REGISTRATION_CODE`: он проверяется только во время регистрации и не хранится в PostgreSQL.
 
 `POST /api/v1/auth/login` выдаёт два cookie: `fsp_session` (opaque случайный токен, HttpOnly) и `fsp_csrf` (double-submit токен, доступный frontend). В PostgreSQL хранятся только SHA-256 hashes обоих токенов. Cookie имеют `SameSite=Lax`, `Path=/`; `Secure` включается через `AUTH_COOKIE_SECURE=true`.
 

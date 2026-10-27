@@ -23,8 +23,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fsp}:${POSTGRES_PASSWORD:-fsp}@db:5432/${POSTGRES_DB:-fsp}
       ADMIN_REGISTRATION_CODE: ${ADMIN_REGISTRATION_CODE:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      UPLOAD_DIR: /app/uploads
     ports:
       - "8002:8000"
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -61,3 +65,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads:

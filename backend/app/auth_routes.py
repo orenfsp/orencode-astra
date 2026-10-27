@@ -8,13 +8,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_models import AuthSession, Role, User
-from app.auth_schemas import LoginRequest, RegisterRequest, RoleSwitchRequest, UserRead
+from app.auth_schemas import LoginRequest, RegisterRequest, RoleAddRequest, RoleSwitchRequest, UserRead
 from app.auth_security import (
     ALL_ROLES, CSRF_COOKIE, DUMMY_PASSWORD_HASH, SESSION_COOKIE, SESSION_TTL, cookie_secure,
     hash_password, login_limiter, new_token, normalize_email, token_hash, utcnow,
     valid_admin_registration_code, verify_password,
 )
 from app.database import get_session
+from app.profile_models import Profile
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -33,9 +34,11 @@ def _aware(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
-def _user_read(auth_session: AuthSession) -> UserRead:
+async def _user_read(db: AsyncSession, auth_session: AuthSession) -> UserRead:
     roles = sorted(role.name for role in auth_session.user.roles)
-    return UserRead(id=auth_session.user.id, email=auth_session.user.email, roles=roles, active_role=auth_session.active_role)
+    profile = await db.get(Profile, auth_session.user.id)
+    full_name = " ".join(part for part in (profile.last_name, profile.first_name, profile.middle_name) if part) if profile else None
+    return UserRead(id=auth_session.user.id, email=auth_session.user.email, roles=roles, active_role=auth_session.active_role, full_name=full_name)
 
 
 def _set_auth_cookies(response: Response, session_token: str, csrf_token: str) -> None:
@@ -57,13 +60,35 @@ async def current_auth_session(
 ) -> AuthSession:
     if not session_token:
         raise HTTPException(status_code=401, detail="Требуется вход")
-    await db.execute(delete(AuthSession).where(AuthSession.expires_at <= utcnow()))
-    await db.commit()
     result = await db.scalars(select(AuthSession).where(AuthSession.token_hash == token_hash(session_token)))
     auth_session = result.one_or_none()
-    if auth_session is None or auth_session.revoked_at is not None or _aware(auth_session.expires_at) <= utcnow():
+    if auth_session is not None and _aware(auth_session.expires_at) <= utcnow():
+        # Expired rows are removed lazily here; the rest are pruned on every login.
+        await db.delete(auth_session)
+        await db.commit()
+        auth_session = None
+    if auth_session is None or auth_session.revoked_at is not None:
         raise HTTPException(status_code=401, detail="Сессия недействительна")
     return auth_session
+
+
+async def optional_auth_session(
+    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
+    db: AsyncSession = Depends(get_session),
+) -> AuthSession | None:
+    """Public endpoints use this to widen what a signed-in user may see; never raises."""
+    if not session_token:
+        return None
+    try:
+        return await current_auth_session(session_token, db)
+    except HTTPException:
+        return None
+
+
+def is_active_admin(auth_session: AuthSession | None) -> bool:
+    if auth_session is None or auth_session.active_role != "federation_admin":
+        return False
+    return "federation_admin" in {role.name for role in auth_session.user.roles}
 
 
 async def csrf_protected_session(
@@ -101,19 +126,21 @@ async def register(payload: RegisterRequest, response: Response, db: AsyncSessio
         role = Role(name=payload.role)
         db.add(role)
         await db.flush()
-    user = User(email=email, password_hash=hash_password(payload.password), created_at=utcnow(), roles=[role])
+    now = utcnow()
+    user = User(email=email, password_hash=hash_password(payload.password), created_at=now, pd_consent_at=now, roles=[role])
     db.add(user)
     try:
         await db.flush()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Не удалось зарегистрировать аккаунт") from None
+    db.add(Profile(user_id=user.id, last_name=payload.last_name, first_name=payload.first_name, middle_name=payload.middle_name, updated_at=now))
     session_token, csrf_token = new_token(), new_token()
     auth_session = AuthSession(user=user, token_hash=token_hash(session_token), csrf_hash=token_hash(csrf_token), active_role=payload.role, created_at=utcnow(), expires_at=utcnow() + SESSION_TTL)
     db.add(auth_session)
     await db.commit()
     _set_auth_cookies(response, session_token, csrf_token)
-    return _user_read(auth_session)
+    return await _user_read(db, auth_session)
 
 
 @router.post("/login", response_model=UserRead)
@@ -126,18 +153,19 @@ async def login(payload: LoginRequest, request: Request, response: Response, db:
     password_ok = verify_password(user.password_hash if user else DUMMY_PASSWORD_HASH, payload.password)
     if user is None or not password_ok:
         raise HTTPException(status_code=401, detail=INVALID_CREDENTIALS)
+    await db.execute(delete(AuthSession).where(AuthSession.expires_at <= utcnow()))
     active_role = _default_active_role(user)
     session_token, csrf_token = new_token(), new_token()
     auth_session = AuthSession(user=user, token_hash=token_hash(session_token), csrf_hash=token_hash(csrf_token), active_role=active_role, created_at=utcnow(), expires_at=utcnow() + SESSION_TTL)
     db.add(auth_session)
     await db.commit()
     _set_auth_cookies(response, session_token, csrf_token)
-    return _user_read(auth_session)
+    return await _user_read(db, auth_session)
 
 
 @router.get("/me", response_model=UserRead)
-async def me(auth_session: AuthSession = Depends(current_auth_session)) -> UserRead:
-    return _user_read(auth_session)
+async def me(auth_session: AuthSession = Depends(current_auth_session), db: AsyncSession = Depends(get_session)) -> UserRead:
+    return await _user_read(db, auth_session)
 
 
 @router.post("/logout", status_code=204)
@@ -154,4 +182,20 @@ async def switch_role(payload: RoleSwitchRequest, auth_session: AuthSession = De
         raise HTTPException(status_code=403, detail="Роль не назначена пользователю")
     auth_session.active_role = payload.role
     await db.commit()
-    return _user_read(auth_session)
+    return await _user_read(db, auth_session)
+
+
+@router.post("/roles", response_model=UserRead)
+async def add_role(payload: RoleAddRequest, auth_session: AuthSession = Depends(csrf_protected_session), db: AsyncSession = Depends(get_session)) -> UserRead:
+    """Добавить себе публичную роль (спортсмен, тренер, судья) и сразу сделать её активной."""
+    user = auth_session.user
+    if payload.role not in {role.name for role in user.roles}:
+        role = await db.scalar(select(Role).where(Role.name == payload.role))
+        if role is None:
+            role = Role(name=payload.role)
+            db.add(role)
+        user.roles.append(role)
+    auth_session.active_role = payload.role
+    await db.commit()
+    await db.refresh(user)
+    return await _user_read(db, auth_session)

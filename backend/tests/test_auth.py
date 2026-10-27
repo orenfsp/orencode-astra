@@ -51,7 +51,7 @@ class AuthTests(unittest.TestCase):
         login_limiter.clear()
 
     def register(self, email: str, role: str = "athlete", password: str = "Correct-Horse-42", admin_registration_code: str | None = None):
-        return self.client.post("/api/v1/auth/register", json={"email": email, "password": password, "role": role, "admin_registration_code": admin_registration_code})
+        return self.client.post("/api/v1/auth/register", json={"email": email, "password": password, "role": role, "admin_registration_code": admin_registration_code, "last_name": "Иванова", "first_name": "Анна", "pd_consent": True})
 
     def test_register_normalizes_email_hashes_password_and_sets_cookie_flags(self) -> None:
         response = self.register("  Mixed.Auth@Example.COM  ")
@@ -173,6 +173,31 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(logged_in.status_code, 200)
         self.assertEqual(logged_in.json()["roles"], ["athlete", "federation_admin"])
         self.assertEqual(logged_in.json()["active_role"], "federation_admin")
+
+    def test_registration_requires_pd_consent_and_creates_profile(self) -> None:
+        refused = self.client.post("/api/v1/auth/register", json={"email": "no-consent@example.com", "password": "Correct-Horse-42", "last_name": "А", "first_name": "Б", "pd_consent": False})
+        self.assertEqual(refused.status_code, 422)
+        created = self.register("consent@example.com")
+        self.assertEqual(created.json()["full_name"], "Иванова Анна")
+
+        async def inspect():
+            async with self.session_factory() as db:
+                return await db.scalar(select(User).where(User.email == "consent@example.com"))
+        self.assertIsNotNone(asyncio.run(inspect()).pd_consent_at)
+
+    def test_user_adds_public_role_and_switches_without_relogin(self) -> None:
+        self.register("multi@example.com")
+        csrf = self.client.cookies.get("fsp_csrf")
+        self.assertEqual(self.client.post("/api/v1/auth/roles", json={"role": "coach"}).status_code, 403)
+        self.assertEqual(self.client.post("/api/v1/auth/roles", json={"role": "federation_admin"}, headers={"X-CSRF-Token": csrf}).status_code, 422)
+        added = self.client.post("/api/v1/auth/roles", json={"role": "coach"}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(added.status_code, 200)
+        self.assertEqual(added.json()["roles"], ["athlete", "coach"])
+        self.assertEqual(added.json()["active_role"], "coach")
+        back = self.client.post("/api/v1/auth/role", json={"role": "athlete"}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(back.json()["active_role"], "athlete")
+        again = self.client.post("/api/v1/auth/roles", json={"role": "coach"}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(again.json()["roles"], ["athlete", "coach"])
 
     def test_login_limiter(self) -> None:
         for _ in range(5):

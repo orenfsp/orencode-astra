@@ -23,6 +23,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Момент согласия на обработку персональных данных (152-ФЗ), обязательно при регистрации.
+    pd_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, lazy="selectin")
     sessions: Mapped[list[AuthSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

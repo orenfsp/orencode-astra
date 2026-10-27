@@ -25,7 +25,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         email = f"integration-{uuid.uuid4().hex}@example.test"
         registered = self.client.post(
             "/api/v1/auth/register",
-            json={"email": email, "password": "Postgres-Test-Password-42", "role": "coach"},
+            json={"email": email, "password": "Postgres-Test-Password-42", "role": "coach", "last_name": "Тестов", "first_name": "Тест", "pd_consent": True},
         )
         self.assertEqual(registered.status_code, 201)
         self.assertEqual(self.client.get("/api/v1/auth/me").json()["active_role"], "coach")
@@ -50,11 +50,16 @@ class PostgresIntegrationTests(unittest.TestCase):
             headers={"X-CSRF-Token": csrf},
             json={
                 "title": "PostgreSQL integration tournament",
-                "discipline": "Алгоритмическое программирование",
+                "discipline_id": 1,
+                "competition_type_id": 1,
+                "level": "regional",
+                "age_group_ids": [2],
                 "date": "2027-02-20",
+                "end_date": "2027-02-20",
+                "format": "offline",
+                "calendar_plan": "regional",
                 "location": "Оренбург",
                 "description": "Проверка admin RBAC на PostgreSQL.",
-                "event_format": "Очно",
                 "registration_start": "2027-01-01",
                 "registration_end": "2027-02-10",
                 "status": "draft",
@@ -69,6 +74,9 @@ class PostgresIntegrationTests(unittest.TestCase):
                 "email": f"athlete-{uuid.uuid4().hex}@example.test",
                 "password": "Athlete-Test-Password-42",
                 "role": "athlete",
+                "last_name": "Тестова",
+                "first_name": "Анна",
+                "pd_consent": True,
             },
         )
         self.assertEqual(athlete.status_code, 201)
@@ -100,11 +108,16 @@ class PostgresIntegrationTests(unittest.TestCase):
             headers=headers,
             json={
                 "title": f"PostgreSQL CRUD {marker}",
-                "discipline": "Алгоритмическое программирование",
+                "discipline_id": 1,
+                "competition_type_id": 1,
+                "level": "regional",
+                "age_group_ids": [2],
                 "date": "2027-02-20",
+                "end_date": "2027-02-20",
+                "format": "offline",
+                "calendar_plan": "regional",
                 "location": "Оренбург",
                 "description": "Integration test competition",
-                "event_format": "Очно",
                 "registration_start": "2027-01-01",
                 "registration_end": "2027-02-10",
                 "status": "draft",
@@ -151,48 +164,27 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.assertEqual(restored_view.json()["title"], f"PostgreSQL CRUD {marker}")
 
     def _assert_competitions(self, client: TestClient) -> None:
-        response = client.get("/api/v1/competitions")
+        reference = client.get("/api/v1/reference").json()
+        self.assertEqual(len(reference["disciplines"]), 6)
 
+        response = client.get("/api/v1/competitions")
         self.assertEqual(response.status_code, 200)
         competitions = response.json()
-        self.assertEqual([item["id"] for item in competitions], [1, 2, 3])
-        self.assertEqual(
-            [item["status"] for item in competitions],
-            ["registration_open", "upcoming", "completed"],
-        )
-        self.assertEqual(competitions[0]["date"], "2026-11-15")
+        self.assertGreaterEqual(len(competitions), 6)
+        self.assertEqual({item["discipline"]["code"] for item in competitions}, {"algorithmic", "product", "security", "ai", "robotics", "uav"})
+        self.assertEqual([item["date"] for item in competitions], sorted(item["date"] for item in competitions))
 
-        filtered_response = client.get(
-            "/api/v1/competitions",
-            params={
-                "status": "registration_open",
-                "discipline": "Алгоритмическое программирование",
-                "q": "город",
-            },
-        )
-        self.assertEqual(filtered_response.status_code, 200)
-        self.assertEqual(
-            [item["id"] for item in filtered_response.json()],
-            [1],
-        )
+        algorithmic = next(item for item in reference["disciplines"] if item["code"] == "algorithmic")
+        filtered = client.get("/api/v1/competitions", params={"status": "registration_open", "discipline_id": algorithmic["id"], "q": "Чемпионат"})
+        self.assertEqual(filtered.status_code, 200)
+        self.assertEqual([item["calendar_plan"] for item in filtered.json()], ["regional"])
 
-        empty_response = client.get(
-            "/api/v1/competitions",
-            params={"status": "completed", "q": "хакатон"},
-        )
-        self.assertEqual(empty_response.status_code, 200)
-        self.assertEqual(empty_response.json(), [])
+        ekp = client.get("/api/v1/competitions", params={"calendar_plan": "ekp"}).json()
+        self.assertTrue(ekp and all(item["level"] != "regional" for item in ekp))
 
-        detail_response = client.get("/api/v1/competitions/2")
-        self.assertEqual(detail_response.status_code, 200)
-        self.assertEqual(detail_response.json()["title"], "Осенний хакатон")
-
-        missing_response = client.get("/api/v1/competitions/999")
+        missing_response = client.get("/api/v1/competitions/999999")
         self.assertEqual(missing_response.status_code, 404)
-        self.assertEqual(
-            missing_response.json(),
-            {"detail": "Competition not found"},
-        )
+        self.assertEqual(missing_response.json(), {"detail": "Соревнование не найдено"})
 
 
 if __name__ == "__main__":

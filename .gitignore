@@ -5,3 +5,5 @@ backend/preview.db
 __pycache__/
 *.egg-info/
 pip-build-*/
+backend/uploads/
+.env
