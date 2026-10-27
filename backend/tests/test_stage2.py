@@ -11,7 +11,7 @@ from app.deadlines import generate_reminders, governor_deadline
 from app.notification_models import Notification
 from app.notifications import send_pending_emails
 from app.qualification_models import AthleteRank, RankNorm, SportRank
-from app.qualifications import suggested_rank, validity
+from app.qualifications import order_phrase, suggested_rank, validity
 from app.models import CompetitionLevel
 from support import PASSWORD, ApiDatabase, csrf, register
 
@@ -40,6 +40,11 @@ class RulesTests(unittest.TestCase):
         self.assertIsNone(suggested_rank(CompetitionLevel.REGIONAL, 9, norms))
         self.assertIsNone(suggested_rank(CompetitionLevel.ALL_RUSSIAN, 1, norms))
         self.assertIsNone(suggested_rank(CompetitionLevel.REGIONAL, None, norms))
+
+    def test_order_phrase_does_not_repeat_word(self) -> None:
+        self.assertEqual(order_phrase("№ 12-р от 27.10.2026"), "приказ № 12-р от 27.10.2026")
+        self.assertEqual(order_phrase("Приказ № 7-с от 27.10.2026"), "Приказ № 7-с от 27.10.2026")
+        self.assertEqual(order_phrase("приказ ФСП № 34-р"), "приказ ФСП № 34-р")
 
     def test_governor_deadline(self) -> None:
         self.assertEqual(governor_deadline(date(2026, 10, 27)), date(2027, 2, 1))

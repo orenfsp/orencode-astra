@@ -50,6 +50,11 @@ def validity(expires_on: date | None, today: date | None = None) -> Literal["non
     return "expired" if days < 0 else "expiring" if days <= EXPIRY_WARNING_DAYS else "valid"
 
 
+def order_phrase(order_ref: str) -> str:
+    """«приказ № 12-р», но без повтора, если федерация сама написала «Приказ № 12-р»."""
+    return order_ref if order_ref.casefold().startswith("приказ") else f"приказ {order_ref}"
+
+
 class Decision(BaseModel):
     """Решение федерации; при одобрении фиксируются дата, приказ и срок действия."""
 
@@ -225,7 +230,7 @@ async def decide_judge_request(request_id: Annotated[int, Path(gt=0)], payload: 
             db.add(profile)
         profile.category, profile.category_assigned_on, profile.category_expires_on = item.category, payload.assigned_on, payload.expires_on
         profile.order_ref, profile.updated_at = payload.order_ref, utcnow()
-        body = f"{CATEGORY_LABELS[item.category]} до {payload.expires_on:%d.%m.%Y}, приказ {payload.order_ref}."
+        body = f"{CATEGORY_LABELS[item.category]} до {payload.expires_on:%d.%m.%Y}, {order_phrase(payload.order_ref)}."
     else:
         body = f"Отказ: {payload.comment}"
     await notify(db, {item.judge_id}, "judge_decision", "Решение по судейской категории", body, "/cabinet")
@@ -455,7 +460,7 @@ async def decide_rank_request(request_id: Annotated[int, Path(gt=0)], payload: D
             athlete_id=item.athlete_id, rank=item.rank, assigned_on=payload.assigned_on, expires_on=payload.expires_on,
             order_ref=payload.order_ref, request_id=item.id, created_at=utcnow(),
         ))
-        body = f"{RANK_LABELS[item.rank]} присвоен, приказ {payload.order_ref}, действует до {payload.expires_on:%d.%m.%Y}."
+        body = f"{RANK_LABELS[item.rank]} присвоен, {order_phrase(payload.order_ref)}, действует до {payload.expires_on:%d.%m.%Y}."
     else:
         body = f"{RANK_LABELS[item.rank]}: отказ. {payload.comment}"
     await notify(db, {item.athlete_id, item.submitted_by_id}, "rank_decision", "Решение по заявке на разряд", body, "/cabinet")
