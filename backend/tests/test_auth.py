@@ -50,8 +50,8 @@ class AuthTests(unittest.TestCase):
         self.client.cookies.clear()
         login_limiter.clear()
 
-    def register(self, email: str, role: str = "athlete", password: str = "Correct-Horse-42"):
-        return self.client.post("/api/v1/auth/register", json={"email": email, "password": password, "role": role})
+    def register(self, email: str, role: str = "athlete", password: str = "Correct-Horse-42", admin_registration_code: str | None = None):
+        return self.client.post("/api/v1/auth/register", json={"email": email, "password": password, "role": role, "admin_registration_code": admin_registration_code})
 
     def test_register_normalizes_email_hashes_password_and_sets_cookie_flags(self) -> None:
         response = self.register("  Mixed.Auth@Example.COM  ")
@@ -88,9 +88,15 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()["detail"], "Не удалось зарегистрировать аккаунт")
 
-    def test_public_registration_cannot_assign_admin(self) -> None:
+    def test_admin_registration_requires_configured_code(self) -> None:
         response = self.register("admin-self@example.com", role="federation_admin")
-        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.status_code, 403)
+        with patch.dict("os.environ", {"ADMIN_REGISTRATION_CODE": "local-admin-code"}):
+            wrong = self.register("admin-wrong@example.com", role="federation_admin", admin_registration_code="wrong")
+            created = self.register("admin-ok@example.com", role="federation_admin", admin_registration_code="local-admin-code")
+        self.assertEqual(wrong.status_code, 403)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()["active_role"], "federation_admin")
 
     def test_login_success_failure_and_me(self) -> None:
         self.register("login@example.com")
@@ -147,6 +153,26 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(switched.status_code, 200)
         self.assertEqual(switched.json()["active_role"], "coach")
         self.assertEqual(switched.json()["roles"], ["athlete", "coach"])
+
+    def test_login_prefers_assigned_federation_admin_role(self) -> None:
+        self.register("promoted@example.com")
+        self.client.cookies.clear()
+
+        async def promote() -> None:
+            async with self.session_factory() as db:
+                user = await db.scalar(select(User).where(User.email == "promoted@example.com"))
+                admin = await db.scalar(select(Role).where(Role.name == "federation_admin"))
+                user.roles.append(admin)
+                await db.commit()
+
+        asyncio.run(promote())
+        logged_in = self.client.post(
+            "/api/v1/auth/login",
+            json={"email": "promoted@example.com", "password": "Correct-Horse-42"},
+        )
+        self.assertEqual(logged_in.status_code, 200)
+        self.assertEqual(logged_in.json()["roles"], ["athlete", "federation_admin"])
+        self.assertEqual(logged_in.json()["active_role"], "federation_admin")
 
     def test_login_limiter(self) -> None:
         for _ in range(5):

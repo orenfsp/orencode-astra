@@ -1,7 +1,8 @@
 import { StrictMode, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { createRoot } from "react-dom/client";
-import { AuthPanel } from "./auth/AuthPanel";
+import { AuthPanel, changeActiveRole, loadCurrentUser, logoutUser, roleLabels } from "./auth/AuthPanel";
+import type { User } from "./auth/AuthPanel";
 import "./styles.css";
 
 type CompetitionStatus =
@@ -77,7 +78,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric" }).format(parsed);
 }
 
-function Header() {
+function Header({ path }: { path: string }) {
   return (
     <header className="site-header">
       <div className="header-main page-width">
@@ -86,13 +87,12 @@ function Header() {
           <span className="brand-short">ФСП</span>
           <span className="brand-region">Оренбургская<br />область</span>
         </a>
-        <div className="header-meta"><span className="region-code">REG / 56</span><span className="signal"><i /> Система работает</span></div>
       </div>
       <div className="header-nav">
         <nav className="page-width" aria-label="Основная навигация">
-          <a href="/#competitions">Соревнования</a>
-          <a href="/competitions/admin">Управление</a>
-          <span>О федерации</span><span>Оренбург · UTC+5</span>
+          <a className={path !== "/competitions/admin" ? "is-active" : ""} href="/#competitions">Соревнования</a>
+          <a className={path === "/competitions/admin" ? "is-active" : ""} href="/competitions/admin">Управление</a>
+          <span>О федерации</span>
         </nav>
       </div>
     </header>
@@ -184,24 +184,58 @@ function CompetitionForm({ editing, onSaved, onCancel }: { editing: Competition 
   </form>;
 }
 
-function AdminPage() {
-  const [items, setItems] = useState<Competition[]>([]); const [editing, setEditing] = useState<Competition | null>(null); const [error, setError] = useState<string | null>(null); const [version, setVersion] = useState(0);
+function AdminPage({ user, onSessionChange }: { user: User | null | undefined; onSessionChange: (user: User | null) => void }) {
+  const [items, setItems] = useState<Competition[]>([]); const [editing, setEditing] = useState<Competition | null>(null); const [error, setError] = useState<string | null>(null); const [version, setVersion] = useState(0); const [listLoading, setListLoading] = useState(false); const [accessLoading, setAccessLoading] = useState(false); const [accessError, setAccessError] = useState<string | null>(null);
+  const isAdmin = user?.active_role === "federation_admin";
   const reload = () => setVersion((value) => value + 1);
-  useEffect(() => { apiRequest<Competition[]>(`${API_URL}?include_archived=true`).then(setItems).catch((reason: Error) => setError(reason.message)); }, [version]);
+  useEffect(() => {
+    if (!isAdmin) { setItems([]); setEditing(null); setError(null); return; }
+    let active = true;
+    setListLoading(true);
+    apiRequest<Competition[]>(`${API_URL}?include_archived=true`)
+      .then((data) => { if (active) setItems(data); })
+      .catch((reason: Error) => { if (active) setError(reason.message); })
+      .finally(() => { if (active) setListLoading(false); });
+    return () => { active = false; };
+  }, [isAdmin, version]);
   async function action(url: string, init?: RequestInit) { setError(null); try { await apiRequest(url, init); reload(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Операция не выполнена"); } }
-  return <section className="admin page-width"><span className="eyebrow">Кабинет федерации</span><h1>Управление соревнованиями</h1><p className="admin-warning">Изменения доступны только пользователю с активной ролью администратора федерации.</p>
+  async function activateAdmin() {
+    setAccessLoading(true); setAccessError(null);
+    try { onSessionChange(await changeActiveRole("federation_admin")); }
+    catch (reason) { setAccessError(reason instanceof Error ? reason.message : "Не удалось переключить роль"); }
+    finally { setAccessLoading(false); }
+  }
+  async function switchAccount() {
+    setAccessLoading(true); setAccessError(null);
+    try {
+      await logoutUser(); onSessionChange(null);
+      requestAnimationFrame(() => document.getElementById("auth")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (reason) { setAccessError(reason instanceof Error ? reason.message : "Не удалось завершить текущую сессию"); }
+    finally { setAccessLoading(false); }
+  }
+
+  const roleName = user ? roleLabels[user.active_role] ?? user.active_role : "";
+  const hasAdminRole = user?.roles.includes("federation_admin") ?? false;
+
+  return <section className="admin page-width"><span className="eyebrow">Кабинет федерации</span><h1>Управление соревнованиями</h1>
+    {user === undefined && <div className="access-panel" role="status"><span className="access-code">AUTH</span><div><h2>Проверяем доступ</h2><p>Сверяем активную сессию и роль пользователя.</p></div></div>}
+    {user === null && <div className="access-panel"><span className="access-code">AUTH</span><div><h2>Войдите для управления</h2><p>Создавать и изменять соревнования может только пользователь с активной ролью администратора федерации.</p><a className="primary-button" href="#auth">Перейти ко входу</a></div></div>}
+    {user && !isAdmin && <div className="access-panel"><span className="access-code">ROLE</span><div><h2>{hasAdminRole ? "Переключите активную роль" : "Для аккаунта нет административного доступа"}</h2><p>{hasAdminRole ? `Сейчас активна роль «${roleName}». Роль администратора уже есть в аккаунте — включите её, чтобы открыть управление.` : `Сейчас активна роль «${roleName}». Войдите под аккаунтом, которому выдана роль администратора федерации.`}</p>{hasAdminRole ? <button className="primary-button" type="button" disabled={accessLoading} onClick={() => void activateAdmin()}>{accessLoading ? "Переключаем…" : "Включить роль администратора"}</button> : <button className="primary-button" type="button" disabled={accessLoading} onClick={() => void switchAccount()}>{accessLoading ? "Завершаем сессию…" : "Войти другим аккаунтом"}</button>}{accessError && <p className="form-error" role="alert">{accessError}</p>}</div></div>}
+    {isAdmin && <><p className="admin-access-ok"><i /> Доступ подтверждён · активная роль: {roleLabels.federation_admin}</p>
     <CompetitionForm key={editing?.id ?? "new"} editing={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />
-    <div className="admin-list"><div className="section-heading"><div><span className="section-index">02</span><h2>Все записи</h2></div><span className="counter">{items.length}</span></div>{error && <p className="form-error" role="alert">{error}</p>}{items.map((item) => <article className={`admin-card${item.is_archived ? " is-archived" : ""}`} key={item.id}>
+    <div className="admin-list"><div className="section-heading"><div><span className="section-index">02</span><h2>Все записи</h2></div><span className="counter">{items.length}</span></div>{listLoading && <State code="…" title="Загружаем записи" text="Получаем административный список соревнований." />}{error && <p className="form-error" role="alert">{error}</p>}{!listLoading && !error && items.length === 0 && <State code="00" title="Записей пока нет" text="Создайте первое соревнование с помощью формы выше." />}{items.map((item) => <article className={`admin-card${item.is_archived ? " is-archived" : ""}`} key={item.id}>
       <div><span className={`status status--${item.status}`}><i />{statusLabels[item.status]}</span>{item.is_archived && <span className="archive-label">Архив</span>}<h3>{item.title}</h3><p>{item.discipline} · {formatDate(item.date)}</p></div>
       <div className="admin-actions"><button type="button" onClick={() => setEditing(item)} disabled={item.is_archived}>Редактировать</button><select aria-label={`Статус: ${item.title}`} value={item.status} disabled={item.is_archived} onChange={(event) => void action(`${API_URL}/${item.id}/status`, { method: "PATCH", body: JSON.stringify({ status: event.target.value }) })}>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select>{item.status === "registration_open" && !item.is_archived && <button type="button" onClick={() => void action(`${API_URL}/${item.id}/close-registration`, { method: "POST" })}>Закрыть регистрацию</button>}{!item.is_archived && <button className="danger-button" type="button" onClick={() => void action(`${API_URL}/${item.id}/archive`, { method: "POST" })}>Архивировать</button>}</div>
-    </article>)}</div>
+    </article>)}</div></>}
   </section>;
 }
 
 function App() {
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   const detailMatch = path.match(/^\/competitions\/(\d+)$/);
-  return <div className="app-shell"><Header /><div className="auth-zone page-width"><AuthPanel /></div><main>{path === "/competitions/admin" ? <AdminPage /> : detailMatch ? <DetailPage competitionId={Number(detailMatch[1])} /> : <CatalogPage />}</main><footer className="page-width"><span>ФСП / ОРЕНБУРГСКАЯ ОБЛАСТЬ</span><span>КОД · СПОРТ · СООБЩЕСТВО</span></footer></div>;
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  useEffect(() => { void loadCurrentUser().then(setUser); }, []);
+  return <div className="app-shell"><Header path={path} /><div className="auth-zone page-width" id="auth"><AuthPanel user={user} onSessionChange={setUser} /></div><main>{path === "/competitions/admin" ? <AdminPage user={user} onSessionChange={setUser} /> : detailMatch ? <DetailPage competitionId={Number(detailMatch[1])} /> : <CatalogPage />}</main><footer className="page-width"><span>ФСП / ОРЕНБУРГСКАЯ ОБЛАСТЬ</span><span>КОД · СПОРТ · СООБЩЕСТВО</span></footer></div>;
 }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

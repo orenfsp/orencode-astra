@@ -12,13 +12,21 @@ from app.auth_schemas import LoginRequest, RegisterRequest, RoleSwitchRequest, U
 from app.auth_security import (
     ALL_ROLES, CSRF_COOKIE, DUMMY_PASSWORD_HASH, SESSION_COOKIE, SESSION_TTL, cookie_secure,
     hash_password, login_limiter, new_token, normalize_email, token_hash, utcnow,
-    verify_password,
+    valid_admin_registration_code, verify_password,
 )
 from app.database import get_session
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 INVALID_CREDENTIALS = "Неверный email или пароль"
+
+
+def _default_active_role(user: User) -> str:
+    """Prefer the privileged role only when it is actually assigned."""
+    roles = {role.name for role in user.roles}
+    if "federation_admin" in roles:
+        return "federation_admin"
+    return sorted(roles)[0]
 
 
 def _aware(value: datetime) -> datetime:
@@ -86,6 +94,8 @@ def require_roles(*allowed: str, csrf: bool = False):
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest, response: Response, db: AsyncSession = Depends(get_session)) -> UserRead:
     email = normalize_email(payload.email)
+    if payload.role == "federation_admin" and not valid_admin_registration_code(payload.admin_registration_code):
+        raise HTTPException(status_code=403, detail="Код администратора недействителен")
     role = await db.scalar(select(Role).where(Role.name == payload.role))
     if role is None:
         role = Role(name=payload.role)
@@ -116,7 +126,7 @@ async def login(payload: LoginRequest, request: Request, response: Response, db:
     password_ok = verify_password(user.password_hash if user else DUMMY_PASSWORD_HASH, payload.password)
     if user is None or not password_ok:
         raise HTTPException(status_code=401, detail=INVALID_CREDENTIALS)
-    active_role = sorted(role.name for role in user.roles)[0]
+    active_role = _default_active_role(user)
     session_token, csrf_token = new_token(), new_token()
     auth_session = AuthSession(user=user, token_hash=token_hash(session_token), csrf_hash=token_hash(csrf_token), active_role=active_role, created_at=utcnow(), expires_at=utcnow() + SESSION_TTL)
     db.add(auth_session)

@@ -22,6 +22,7 @@ services:
       target: runtime
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fsp}:${POSTGRES_PASSWORD:-fsp}@db:5432/${POSTGRES_DB:-fsp}
+      ADMIN_REGISTRATION_CODE: ${ADMIN_REGISTRATION_CODE:-}
     ports:
       - "8002:8000"
     depends_on:

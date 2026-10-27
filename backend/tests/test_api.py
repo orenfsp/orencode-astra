@@ -81,7 +81,7 @@ class ApiTests(unittest.TestCase):
                         email="api-admin@example.test",
                         password_hash=hash_password("Api-Admin-Password-42"),
                         created_at=utcnow(),
-                        roles=[roles[-1]],
+                        roles=[roles[0], roles[-1]],
                     )
                 )
                 await session.commit()
@@ -112,6 +112,7 @@ class ApiTests(unittest.TestCase):
             json={"email": "api-admin@example.test", "password": "Api-Admin-Password-42"},
         )
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["active_role"], "federation_admin")
         return {"X-CSRF-Token": self.client.cookies.get("fsp_csrf")}
 
     def test_health(self) -> None:

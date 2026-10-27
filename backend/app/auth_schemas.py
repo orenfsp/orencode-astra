@@ -3,13 +3,14 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-PublicRole = Literal["athlete", "coach", "judge"]
+RegistrationRole = Literal["athlete", "coach", "judge", "federation_admin"]
 
 
 class RegisterRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=12, max_length=128)
-    role: PublicRole = "athlete"
+    role: RegistrationRole = "athlete"
+    admin_registration_code: str | None = Field(default=None, max_length=256)
 
     @field_validator("email")
     @classmethod

@@ -3,9 +3,9 @@
 import asyncio
 import os
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from app.auth_models import Role, User
+from app.auth_models import AuthSession, Role, User
 from app.auth_security import hash_password, normalize_email, utcnow
 from app.database import SessionFactory
 
@@ -28,10 +28,23 @@ async def create_admin() -> None:
         if user is None:
             user = User(email=email, password_hash=hash_password(password), created_at=utcnow(), roles=[role])
             db.add(user)
-        elif role not in user.roles:
-            user.roles.append(role)
+            action = "created"
+        else:
+            user.password_hash = hash_password(password)
+            if role not in user.roles:
+                user.roles.append(role)
+                action = "promoted"
+            else:
+                action = "updated"
+            # The explicit password reset invalidates old browser sessions. A fresh
+            # login will select federation_admin as the active role.
+            await db.execute(
+                update(AuthSession)
+                .where(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None))
+                .values(revoked_at=utcnow())
+            )
         await db.commit()
-    print(f"Federation admin is ready: {email}")
+    print(f"Federation admin {action}: {email}. Sign in again to activate federation_admin.")
 
 
 if __name__ == "__main__":

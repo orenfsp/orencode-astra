@@ -52,6 +52,12 @@ def cookie_secure() -> bool:
     return os.getenv("AUTH_COOKIE_SECURE", "false").strip().lower() in {"1", "true", "yes"}
 
 
+def valid_admin_registration_code(value: str | None) -> bool:
+    """Allow administrator signup only when the owner configured a non-empty secret."""
+    configured = os.getenv("ADMIN_REGISTRATION_CODE", "")
+    return bool(configured) and value is not None and secrets.compare_digest(configured, value)
+
+
 class LoginRateLimiter:
     """Process-local limiter. Production with multiple workers needs Redis/shared storage."""
 

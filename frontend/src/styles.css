@@ -44,9 +44,9 @@ a { color: inherit; text-decoration: none; }
 .site-header { color: #1b1c21; background: var(--paper); border-top: 4px solid #1b1c21; }
 .header-main {
   display: flex;
-  min-height: 92px;
+  min-height: 88px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 28px;
 }
 .brand { display: inline-flex; align-items: center; gap: 14px; }
@@ -81,22 +81,6 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-.header-meta {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  color: #55565d;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-}
-.signal { display: flex; align-items: center; gap: 8px; }
-.signal i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #27a85a;
-  box-shadow: 0 0 0 4px rgba(39, 168, 90, 0.12);
-}
 .header-nav { border-top: 1px solid #d3d3d5; }
 .header-nav nav { display: flex; min-height: 50px; align-items: stretch; }
 .header-nav a,
@@ -109,7 +93,7 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 .header-nav :first-child { padding-left: 0; padding-right: 38px; }
-.header-nav :last-child { margin-left: auto; padding-right: 0; border: 0; color: #73747b; }
+.header-nav :last-child { color: #73747b; }
 .header-nav .is-active { color: var(--accent); font-weight: 600; }
 
 .intro {
@@ -331,12 +315,11 @@ footer {
   .brand-mark i { width: 10px; height: 10px; }
   .brand-short { padding-right: 9px; font-size: 1.55rem; }
   .brand-region { font-size: 0.58rem; }
-  .header-meta { display: none; }
   .header-nav { overflow-x: auto; }
   .header-nav nav { width: max-content; min-width: 100%; }
   .header-nav a, .header-nav span { min-height: 44px; padding-inline: 17px; font-size: 0.65rem; }
   .header-nav :first-child { padding-left: 0; padding-right: 18px; }
-  .header-nav :last-child { margin-left: 0; padding-right: 18px; }
+  .header-nav :last-child { padding-right: 18px; }
   .intro { padding-block: 42px 34px; }
   .eyebrow { margin-bottom: 15px; font-size: 0.63rem; }
   h1 {
@@ -398,7 +381,14 @@ footer {
 .detail-grid div { min-height: 120px; padding: 25px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 
 .admin > h1 { max-width: 880px; }
-.admin-warning { max-width: 760px; margin: 0 0 34px; padding: 16px 18px; border-left: 3px solid #ffca48; color: #c9c9ce; background: rgba(255,202,72,.07); font-size: .76rem; line-height: 1.6; }
+.admin-access-ok { display: flex; max-width: 760px; align-items: center; gap: 10px; margin: 0 0 34px; padding: 14px 16px; border: 1px solid rgba(86,202,128,.28); color: #b9d9c4; background: rgba(39,168,90,.07); font-size: .72rem; line-height: 1.6; }
+.admin-access-ok i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #56ca80; box-shadow: 0 0 0 4px rgba(86,202,128,.1); }
+.access-panel { display: grid; grid-template-columns: auto minmax(0, 720px); justify-content: start; gap: 22px; margin-top: 34px; padding: 30px; border: 1px solid var(--line); background: rgba(255,255,255,.018); }
+.access-code { display: grid; width: 52px; height: 52px; place-items: center; color: #9b92ff; background: rgba(73,52,255,.14); font-size: .64rem; }
+.access-panel h2 { margin: 0 0 10px; font-size: clamp(1.35rem, 2.4vw, 2rem); }
+.access-panel p { max-width: 680px; margin: 0 0 20px; color: #aaaab2; font-size: .76rem; line-height: 1.7; }
+.access-panel .primary-button { display: inline-flex; align-items: center; justify-content: center; }
+.access-panel .form-error { margin-top: 14px; margin-bottom: 0; }
 .admin-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 72px; padding: 28px; border: 1px solid var(--line); background: rgba(255,255,255,.018); }
 .admin-form-heading, .form-wide, .admin-form > .primary-button, .admin-form > .form-error { grid-column: 1 / -1; }
 .admin-form-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -440,6 +430,7 @@ footer {
   .detail-heading { padding: 34px 0; }
   .detail-heading > .discipline { display: table; margin: 10px 0 0; }
   .detail-grid { grid-template-columns: 1fr; }
+  .access-panel { grid-template-columns: 1fr; gap: 16px; padding: 20px; }
   .admin-form { grid-template-columns: 1fr; padding: 18px; }
   .admin-form > * { grid-column: 1; }
   .admin-actions { display: grid; }

@@ -1,11 +1,11 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import "./auth.css";
 
-type User = { id: number; email: string; roles: string[]; active_role: string };
+export type User = { id: number; email: string; roles: string[]; active_role: string };
 type Mode = "login" | "register";
 
 const AUTH_URL = "http://127.0.0.1:8002/api/v1/auth";
-const roleLabels: Record<string, string> = {
+export const roleLabels: Record<string, string> = {
   athlete: "Спортсмен",
   coach: "Тренер",
   judge: "Судья",
@@ -25,28 +25,50 @@ async function api(path: string, init: RequestInit = {}) {
   return response;
 }
 
-export function AuthPanel() {
-  const [user, setUser] = useState<User | null>(null);
+export async function loadCurrentUser(): Promise<User | null> {
+  try {
+    const response = await api("/me");
+    return await response.json() as User;
+  } catch {
+    return null;
+  }
+}
+
+export async function changeActiveRole(role: string): Promise<User> {
+  const response = await api("/role", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+    body: JSON.stringify({ role }),
+  });
+  return await response.json() as User;
+}
+
+export async function logoutUser(): Promise<void> {
+  await api("/logout", {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken() },
+  });
+}
+
+export function AuthPanel({ user, onSessionChange }: { user: User | null | undefined; onSessionChange: (user: User | null) => void }) {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("athlete");
-  const [loading, setLoading] = useState(true);
+  const [adminRegistrationCode, setAdminRegistrationCode] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api("/me").then((response) => response.json()).then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
-  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const body = mode === "register" ? { email, password, role } : { email, password };
+      const body = mode === "register" ? { email, password, role, admin_registration_code: role === "federation_admin" ? adminRegistrationCode : undefined } : { email, password };
       const response = await api(`/${mode}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      setUser(await response.json());
+      onSessionChange(await response.json() as User);
       setPassword("");
+      setAdminRegistrationCode("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось выполнить запрос");
     } finally {
@@ -54,17 +76,16 @@ export function AuthPanel() {
     }
   }
 
-  async function mutate(path: string, body?: object) {
+  async function mutate(path: string, body?: { role?: string }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await api(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (path === "/logout") setUser(null);
-      else setUser(await response.json());
+      if (path === "/logout") {
+        await logoutUser();
+        onSessionChange(null);
+      } else {
+        onSessionChange(await changeActiveRole(String(body?.role ?? "")));
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось выполнить запрос");
     } finally {
@@ -72,13 +93,13 @@ export function AuthPanel() {
     }
   }
 
-  if (loading && !user) return <div className="auth-panel auth-panel--status" role="status">Проверяем сессию…</div>;
+  if (user === undefined) return <div className="auth-panel auth-panel--status" role="status">Проверяем сессию…</div>;
 
   if (user) {
     return (
-      <section className="auth-panel" aria-label="Профиль пользователя">
-        <div className="auth-user"><span>Вы вошли как</span><strong>{user.email}</strong></div>
-        <label>Активная роль
+      <section className="auth-panel auth-panel--user" aria-label="Профиль пользователя">
+        <div className="auth-user"><span className="auth-session"><i /> Сессия активна</span><strong>{user.email}</strong></div>
+        <label className="auth-role">Активная роль
           <select value={user.active_role} disabled={loading} onChange={(event) => mutate("/role", { role: event.target.value })}>
             {user.roles.map((item) => <option value={item} key={item}>{roleLabels[item] ?? item}</option>)}
           </select>
@@ -98,7 +119,7 @@ export function AuthPanel() {
       <form onSubmit={submit}>
         <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Пароль<input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "register" ? 12 : 1} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-        {mode === "register" && <label>Роль<select value={role} onChange={(event) => setRole(event.target.value)}><option value="athlete">Спортсмен</option><option value="coach">Тренер</option><option value="judge">Судья</option></select></label>}
+        {mode === "register" && <><label>Роль<select value={role} onChange={(event) => setRole(event.target.value)}><option value="athlete">Спортсмен</option><option value="coach">Тренер</option><option value="judge">Судья</option><option value="federation_admin">Администратор федерации</option></select></label>{role === "federation_admin" && <label>Код администратора<input type="password" autoComplete="off" required value={adminRegistrationCode} onChange={(event) => setAdminRegistrationCode(event.target.value)} /></label>}</>}
         <button type="submit" disabled={loading}>{loading ? "Подождите…" : mode === "login" ? "Войти" : "Создать аккаунт"}</button>
         {error && <p role="alert">{error}</p>}
       </form>
