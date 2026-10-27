@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
-import { api, errorText, json } from "../shared/api";
+import { api, errorText, fileUrl, json } from "../shared/api";
 import { applicationStatusLabels, formatDate, genderLabels, keys, levelLabels, resultStatusLabels, roleLabels, stageLabels } from "../shared/labels";
 import type { Application, HistoryItem, MyProfile, Role } from "../shared/types";
 import { FormError, GuestNotice, Notice, PageTitle, State } from "../shared/ui";
@@ -96,6 +96,7 @@ function AthleteForm({ data, onSaved }: { data: MyProfile; onSaved: (data: MyPro
     organization_id: athlete?.organization?.id ? String(athlete.organization.id) : "",
     discipline_ids: athlete?.disciplines.map((item) => item.id) ?? [],
     start_year: athlete?.start_year ? String(athlete.start_year) : "",
+    end_year: athlete?.end_year ? String(athlete.end_year) : "",
     training_stage: athlete?.training_stage ?? "",
     guardian_name: athlete?.guardian_name ?? "", guardian_phone: athlete?.guardian_phone ?? "",
     guardian_consent: Boolean(athlete?.guardian_consent_at),
@@ -121,6 +122,7 @@ function AthleteForm({ data, onSaved }: { data: MyProfile; onSaved: (data: MyPro
         organization_id: form.organization_id ? Number(form.organization_id) : null,
         discipline_ids: form.discipline_ids,
         start_year: form.start_year ? Number(form.start_year) : null,
+        end_year: form.end_year ? Number(form.end_year) : null,
         training_stage: form.training_stage || null,
         guardian_name: form.guardian_name || null, guardian_phone: form.guardian_phone || null, guardian_consent: form.guardian_consent,
         rusada_completed_on: form.rusada_completed_on || null, rusada_certificate_url: form.rusada_certificate_url || null,
@@ -145,6 +147,7 @@ function AthleteForm({ data, onSaved }: { data: MyProfile; onSaved: (data: MyPro
         </select>
       </label>
       <label>Год начала занятий<input type="number" min={1990} max={new Date().getFullYear()} value={form.start_year} onChange={set("start_year")} /></label>
+      <label>Прекратил занятия (год)<input type="number" min={1990} max={new Date().getFullYear()} placeholder="занимаюсь" value={form.end_year} onChange={set("end_year")} /><small>Нужно для отчёта о численности занимающихся.</small></label>
       <label className="form-wide">Этап спортивной подготовки
         <select value={form.training_stage} onChange={set("training_stage")}><option value="">Не определён</option>{keys(stageLabels).map((item) => <option key={item} value={item}>{stageLabels[item]}</option>)}</select>
       </label>
@@ -248,6 +251,7 @@ function MyResults() {
     <section className="card">
       <h2>История выступлений</h2>
       {items?.length === 0 && <p className="muted">Результаты появятся здесь после публикации протокола соревнования.</p>}
+      {items && items.length > 0 && <p><a className="button button--small button--ghost" href={fileUrl("/me/report.docx")}>Скачать отчёт о выступлениях .docx</a></p>}
       {items && items.length > 0 && (
         <div className="table-wrap">
           <table className="protocol-table">

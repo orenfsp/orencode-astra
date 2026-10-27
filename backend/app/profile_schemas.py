@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 from app.profile_models import Gender, TrainingStage
 from app.schemas import DisciplineRead, OrganizationRead, RefItem
@@ -56,6 +56,7 @@ class AthleteWrite(BaseModel):
     organization_id: int | None = Field(default=None, gt=0)
     discipline_ids: list[int] = Field(min_length=1, max_length=6)
     start_year: int | None = Field(default=None, ge=1990)
+    end_year: int | None = Field(default=None, ge=1990)
     training_stage: TrainingStage | None = None
     guardian_name: str | None = Field(default=None, max_length=255)
     guardian_phone: str | None = Field(default=None, max_length=40)
@@ -68,12 +69,18 @@ class AthleteWrite(BaseModel):
     def optional_text(cls, value: str | None) -> str | None:
         return _clean(value)
 
-    @field_validator("start_year")
+    @field_validator("start_year", "end_year")
     @classmethod
     def not_future_year(cls, value: int | None) -> int | None:
         if value is not None and value > date.today().year:
-            raise ValueError("Год начала занятий не может быть в будущем")
+            raise ValueError("Год не может быть в будущем")
         return value
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> "AthleteWrite":
+        if self.end_year is not None and self.start_year is not None and self.end_year < self.start_year:
+            raise ValueError("Год окончания занятий раньше года начала")
+        return self
 
 
 class AthleteRead(BaseModel):
@@ -82,6 +89,7 @@ class AthleteRead(BaseModel):
     organization: OrganizationRead | None
     disciplines: list[DisciplineRead]
     start_year: int | None
+    end_year: int | None
     training_stage: TrainingStage | None
     guardian_name: str | None
     guardian_phone: str | None

@@ -55,6 +55,8 @@ class AthleteProfile(Base):
     # NULL означает «без организации».
     organization_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     start_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Год, после которого спортсмен прекратил занятия; нужен для динамики численности.
+    end_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     training_stage: Mapped[TrainingStage | None] = mapped_column(_enum(TrainingStage, "training_stage"), nullable=True)
     guardian_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     guardian_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)

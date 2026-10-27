@@ -246,9 +246,22 @@ ol.ref-list { list-style: decimal inside; }
 .mini-results { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 2px; }
 details summary { cursor: pointer; }
 
+/* ---------- Шаг 4: рейтинг, реестр ---------- */
+.filters--rating { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+.filters--registry { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rating-table td:first-child { white-space: nowrap; }
+.rating-table td:first-child select { margin-left: 6px; }
+.rating-table tr.is-selected td { background: var(--accent-soft); }
+.rating-detail td { background: var(--bg); }
+.excluded { margin: 8px 0 16px; padding: 12px 16px; border-left: 3px solid var(--danger); background: var(--bg); border-radius: 8px; font-size: 14px; }
+.excluded ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
+.team-form { margin-top: 8px; }
+.inline-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.inline-label select, .inline-label input { width: auto; }
+
 /* ---------- Адаптивность ---------- */
 @media (max-width: 1000px) {
-  .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filters, .filters--rating, .filters--registry { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cabinet-grid, .dashboard-grid { grid-template-columns: 1fr; }
   .decision-fields { grid-template-columns: 1fr; }
@@ -266,7 +279,7 @@ details summary { cursor: pointer; }
   .header-nav a { padding: 10px 0; border-bottom: 1px solid #e2e2e8; }
   .header-nav a.active { color: var(--accent); border-color: #e2e2e8; }
   .hero { padding: 40px 0 16px; }
-  .filters, .event-list, .form-grid, .ref-grid, .detail-grid { grid-template-columns: 1fr; }
+  .filters, .filters--rating, .filters--registry, .event-list, .form-grid, .ref-grid, .detail-grid { grid-template-columns: 1fr; }
   .event-meta div { grid-template-columns: 1fr; gap: 2px; }
   .card { padding: 18px; }
   .state { flex-direction: column; }

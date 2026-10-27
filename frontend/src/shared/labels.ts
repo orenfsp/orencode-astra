@@ -138,3 +138,13 @@ export function daysLeftText(days: number): string {
   if (days === 0) return "сегодня";
   return `через ${days} дн.`;
 }
+
+export const sanctionLabels: Record<"disqualification" | "suspension", string> = { disqualification: "Дисквалификация", suspension: "Отстранение" };
+
+export function changeText(counts: number[]): string {
+  const [previous, last] = [counts[counts.length - 2], counts[counts.length - 1]];
+  const change = last - previous;
+  const sign = change > 0 ? "+" : "";
+  if (!previous) return last ? `${sign}${change}` : "0";
+  return `${sign}${change} (${sign}${Math.round((change / previous) * 100)}%)`;
+}

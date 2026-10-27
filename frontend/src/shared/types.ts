@@ -80,6 +80,7 @@ export type MyProfile = {
     organization: Organization | null;
     disciplines: Discipline[];
     start_year: number | null;
+    end_year: number | null;
     training_stage: TrainingStage | null;
     guardian_name: string | null;
     guardian_phone: string | null;
@@ -223,3 +224,51 @@ export type Dashboard = {
   upcoming: { id: number; title: string; date: string; discipline: string; status: CompetitionStatus; approved: number; pending: number }[];
   deadlines: Deadline[];
 };
+
+export type RatingItem = { competition_id: number; title: string; date: string; level: CompetitionLevel; competition_type: string; place: number; points: number; rule: string | null };
+
+export type RatingRow = {
+  place: number;
+  athlete: AthleteBrief;
+  rank: SportRank | null;
+  base_points: number;
+  podiums: number;
+  coefficient: string;
+  total: string;
+  items: RatingItem[];
+};
+
+export type RatingRule = { title: string; level: CompetitionLevel; competition_type_id: number | null; first: number; second: number; third: number };
+
+export type RatingSettings = { stability_coefficient: string; stability_min_podiums: number; points: RatingRule[] };
+
+export type Rating = {
+  season: number;
+  discipline: Discipline;
+  age_group: AgeGroup | null;
+  min_rank: SportRank | null;
+  settings: RatingSettings;
+  rows: RatingRow[];
+  excluded: { athlete: AthleteBrief; reason: string }[];
+};
+
+export type SanctionKind = "disqualification" | "suspension";
+
+export type Sanction = { id: number; athlete: AthleteBrief; kind: SanctionKind; starts_on: string; ends_on: string | null; reason: string; active: boolean };
+
+export type TeamMember = { athlete: AthleteBrief; position: number; is_reserve: boolean; rating_place: number | null; rating_points: string | null; rank: SportRank | null };
+
+export type Team = { id: number; title: string; discipline: Discipline; season: number; age_group: RefItem | null; created_at: string; members: TeamMember[] };
+
+export type RegistryRow = AthleteBrief & {
+  disciplines: Discipline[];
+  start_year: number | null;
+  end_year: number | null;
+  training_stage: TrainingStage | null;
+  rank: SportRank | null;
+  rank_validity: Validity;
+  coaches: string[];
+  age: number | null;
+};
+
+export type Headcount = { years: number[]; total: number[]; sections: { key: string; title: string; rows: { name: string; counts: number[] }[] }[]; note: string };

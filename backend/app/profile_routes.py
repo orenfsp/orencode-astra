@@ -90,6 +90,7 @@ async def update_my_athlete_profile(payload: AthleteWrite, user: User = Depends(
     athlete.organization_id = payload.organization_id
     athlete.disciplines = disciplines
     athlete.start_year = payload.start_year
+    athlete.end_year = payload.end_year
     athlete.training_stage = payload.training_stage
     athlete.guardian_name = payload.guardian_name
     athlete.guardian_phone = payload.guardian_phone

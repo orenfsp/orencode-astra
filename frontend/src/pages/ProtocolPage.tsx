@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, errorText } from "../shared/api";
+import { api, errorText, fileUrl } from "../shared/api";
 import { birthYear, formatDate, formatRange, levelLabels, resultStatusLabels } from "../shared/labels";
 import type { Protocol } from "../shared/types";
 import { State } from "../shared/ui";
@@ -58,7 +58,10 @@ export function ProtocolPage() {
             <p className="muted">{protocol.published_at ? `Опубликован ${formatDate(protocol.published_at)}` : "Черновик протокола — не опубликован"}</p>
           </div>
           <ProtocolTable protocol={protocol} />
-          <button type="button" className="button button--ghost no-print" onClick={() => window.print()}>Распечатать</button>
+          <div className="detail-actions no-print">
+            <a className="button" href={fileUrl(`/competitions/${id}/protocol.docx`)}>Скачать протокол .docx</a>
+            <button type="button" className="button button--ghost" onClick={() => window.print()}>Распечатать</button>
+          </div>
         </>
       )}
     </section>

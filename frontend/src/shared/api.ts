@@ -44,3 +44,8 @@ export const json = (method: string, body: unknown): RequestInit => ({ method, b
 export function errorText(reason: unknown, fallback = "Операция не выполнена"): string {
   return reason instanceof Error && reason.message ? reason.message : fallback;
 }
+
+/** Ссылка на файл, который отдаёт API (документы .docx и .xlsx); cookie сессии уходят вместе с переходом. */
+export function fileUrl(path: string): string {
+  return `${API_BASE}/api/v1${path}`;
+}

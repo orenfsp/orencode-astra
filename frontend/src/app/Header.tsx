@@ -68,6 +68,8 @@ export function Header() {
           {user && <NavLink to="/cabinet">Кабинет</NavLink>}
           {isAdmin && <NavLink to="/admin" end>Дашборд</NavLink>}
           {isAdmin && <NavLink to="/admin/competitions">Соревнования</NavLink>}
+          {isAdmin && <NavLink to="/admin/registry">Реестр</NavLink>}
+          {isAdmin && <NavLink to="/admin/rating">Рейтинг</NavLink>}
           {isAdmin && <NavLink to="/admin/ranks">Разряды</NavLink>}
           {isAdmin && <NavLink to="/admin/judges">Судьи</NavLink>}
           {isAdmin && <NavLink to="/admin/reference">Справочники</NavLink>}

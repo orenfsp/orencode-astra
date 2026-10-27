@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../../app/session";
-import { api, errorText, json } from "../../shared/api";
+import { api, errorText, fileUrl, json } from "../../shared/api";
 import { applicationStatusLabels, birthYear, categoryLabels, formatDate, formatRange, keys, resultStatusLabels } from "../../shared/labels";
 import type { Application, ApplicationStatus, Competition, JudgeAssignment, JudgeRow, Protocol, ResultStatus } from "../../shared/types";
 import { FormError, Notice, PageTitle, State, StatusBadge } from "../../shared/ui";
@@ -219,6 +219,7 @@ function ProtocolTab({ competition, protocol, onChange }: { competition: Competi
         )}
       </div>
       <FormError error={error} />
+      <p><a className="button button--small button--ghost" href={fileUrl(`/competitions/${competition.id}/protocol.docx`)}>Скачать протокол .docx</a> <small className="muted">с подписями главного судьи и главного секретаря из судейской коллегии</small></p>
       <ProtocolTable protocol={protocol} />
     </>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { api, errorText, json } from "../../shared/api";
+import { api, errorText, fileUrl, json } from "../../shared/api";
 import { applicationStatusLabels, birthYear, formatDate, linkStatusLabels, rankLabels, requestStatusLabels } from "../../shared/labels";
 import type { Application, AthleteSearchResult, CoachAthleteSummary, CoachLink, RankRequest } from "../../shared/types";
 import { FormError, Notice } from "../../shared/ui";
@@ -103,6 +103,7 @@ function Athletes({ summary, requests, reload }: { summary: CoachAthleteSummary[
               <div className="row-split">
                 <span><strong>{item.athlete.full_name}</strong><br /><small className="muted">{item.rank ? `${rankLabels[item.rank.rank]} до ${formatDate(item.rank.expires_on)}` : "без разряда"} · выступлений: {item.results.length}</small></span>
                 <span className="row-actions">
+                  <a className="link-button" href={fileUrl(`/athletes/${item.athlete.id}/report.docx`)}>Отчёт .docx</a>
                   {pending ? <span className="app-status app-status--pending">Заявка на разряд: {requestStatusLabels.pending}</span>
                     : <button type="button" className="link-button" onClick={() => setOpen(open === item.athlete.id ? null : item.athlete.id)}>{open === item.athlete.id ? "Свернуть" : "Заявка на разряд"}</button>}
                 </span>

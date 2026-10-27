@@ -11,10 +11,13 @@ from app.coaching import router as coaching_router
 from app.competitions import router as competitions_router
 from app.database import SessionFactory
 from app.deadlines import background_worker, router as deadlines_router
+from app.documents import router as documents_router
 from app.notifications import router as notifications_router
 from app.profile_routes import router as profile_router
 from app.qualifications import router as qualifications_router
+from app.rating import router as rating_router
 from app.reference_routes import router as reference_router
+from app.reports import router as reports_router
 
 
 @asynccontextmanager
@@ -30,7 +33,7 @@ async def lifespan(_app: FastAPI):
         await task
 
 
-app = FastAPI(title="FSP API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="FSP API", version="0.4.0", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(reference_router)
 app.include_router(profile_router)
@@ -40,6 +43,9 @@ app.include_router(coaching_router)
 app.include_router(qualifications_router)
 app.include_router(deadlines_router)
 app.include_router(notifications_router)
+app.include_router(rating_router)
+app.include_router(reports_router)
+app.include_router(documents_router)
 
 CORS_ORIGINS = [
     origin.strip()

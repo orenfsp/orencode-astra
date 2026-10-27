@@ -1,10 +1,13 @@
 """Базовые справочники. Миграция 05 содержит собственную копию этих значений."""
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AgeGroup, CompetitionLevel, CompetitionType, Discipline, JudgePosition, Municipality
 from app.qualification_models import RankNorm, SportRank
+from app.rating_models import RatingPoints, RatingSettings
 
 
 DISCIPLINES = [
@@ -45,6 +48,27 @@ RANK_NORMS = [
     ("interregional", 3, "first"), ("interregional", 6, "second"), ("interregional", 10, "third"),
     ("regional", 3, "second"), ("regional", 6, "third"), ("regional", 10, "youth_1"),
 ]
+
+
+# Базовые баллы рейтинга из кейса (федерация меняет их в настройках): уровень, тип или None (любой), 1–3 место.
+RATING_POINTS = [
+    ("Чемпионат России", "all_russian", "Чемпионат", 100, 80, 60),
+    ("Первенство России", "all_russian", "Первенство", 80, 60, 40),
+    ("Межрегиональные (в т. ч. окружные)", "interregional", None, 60, 45, 30),
+    ("Региональные (чемпионат, первенство области)", "regional", None, 40, 30, 20),
+]
+
+
+async def seed_rating(session: AsyncSession) -> None:
+    if await session.scalar(select(RatingSettings.id).limit(1)) is None:
+        session.add(RatingSettings(stability_coefficient=Decimal("1.2"), stability_min_podiums=2))
+    if await session.scalar(select(RatingPoints.id).limit(1)) is None:
+        types = {item.name: item.id for item in await session.scalars(select(CompetitionType))}
+        session.add_all(
+            RatingPoints(title=title, level=CompetitionLevel(level), competition_type_id=types.get(type_name) if type_name else None, first=first, second=second, third=third)
+            for title, level, type_name, first, second, third in RATING_POINTS
+        )
+    await session.flush()
 
 
 async def seed_rank_norms(session: AsyncSession) -> None:

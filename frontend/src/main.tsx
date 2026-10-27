@@ -6,6 +6,8 @@ import { SessionProvider } from "./app/session";
 import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { AdminJudgesPage } from "./pages/admin/AdminJudgesPage";
 import { AdminRanksPage } from "./pages/admin/AdminRanksPage";
+import { AdminRatingPage } from "./pages/admin/AdminRatingPage";
+import { AdminRegistryPage } from "./pages/admin/AdminRegistryPage";
 import { AdminCompetitionPage } from "./pages/admin/AdminCompetitionPage";
 import { AdminCompetitionsPage } from "./pages/admin/AdminCompetitionsPage";
 import { AdminReferencePage } from "./pages/admin/AdminReferencePage";
@@ -36,6 +38,8 @@ function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/ranks" element={<AdminRanksPage />} />
+          <Route path="/admin/rating" element={<AdminRatingPage />} />
+          <Route path="/admin/registry" element={<AdminRegistryPage />} />
           <Route path="/admin/judges" element={<AdminJudgesPage />} />
           <Route path="/admin/competitions" element={<AdminCompetitionsPage />} />
           <Route path="/admin/competitions/:id" element={<AdminCompetitionPage />} />
