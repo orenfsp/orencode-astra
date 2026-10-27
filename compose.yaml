@@ -19,12 +19,43 @@ services:
   backend:
     build:
       context: ./backend
+      target: runtime
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fsp}:${POSTGRES_PASSWORD:-fsp}@db:5432/${POSTGRES_DB:-fsp}
     ports:
       - "8002:8000"
     depends_on:
       db:
+        condition: service_healthy
+
+  test-db:
+    image: postgres:17-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: fsp_test
+      POSTGRES_USER: fsp_test
+      POSTGRES_PASSWORD: fsp_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 2s
+
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fsp_test:fsp_test@test-db:5432/fsp_test
+      RUN_POSTGRES_INTEGRATION: "1"
+      ADMIN_EMAIL: integration-admin@example.test
+      ADMIN_PASSWORD: Integration-Admin-Password-42
+    depends_on:
+      test-db:
         condition: service_healthy
 
 volumes:

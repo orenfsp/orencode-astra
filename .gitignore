@@ -1,21 +1,7 @@
-# Python
-__pycache__/
-*.py[cod]
+.playwright-cli/
+output/playwright/
+backend/preview.db
 .venv/
+__pycache__/
 *.egg-info/
-pip-build-env-*/
-pip-build-tracker-*/
-
-# Frontend
-node_modules/
-dist/
-*.tsbuildinfo
-
-# Local environment
-.env
-
-# Editor and OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+pip-build-*/

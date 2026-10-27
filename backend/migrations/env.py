@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database import DATABASE_URL
 from app.models import Base
+import app.auth_models  # noqa: F401 - registers auth tables in Base.metadata
 
 
 config = context.config
