@@ -17,6 +17,8 @@ from app.models import (
     AgeGroup, CalendarPlan, Competition, CompetitionLevel, CompetitionStatus, CompetitionType,
     Discipline, competition_age_groups,
 )
+from app.notifications import notify
+from app.profile_models import athlete_disciplines
 from app.schemas import (
     CompetitionCreate,
     CompetitionFields,
@@ -77,6 +79,18 @@ async def resolve_references(session: AsyncSession, fields: CompetitionFields) -
     return age_groups
 
 
+async def announce_registration(session: AsyncSession, competition: Competition) -> None:
+    """Сообщить спортсменам дисциплины об открытии приёма заявок (один раз на соревнование)."""
+    if competition.status != CompetitionStatus.REGISTRATION_OPEN:
+        return
+    athletes = set(await session.scalars(select(athlete_disciplines.c.user_id).where(athlete_disciplines.c.discipline_id == competition.discipline_id)))
+    await notify(
+        session, athletes, "registration_open", "Открыт приём заявок",
+        f"«{competition.title}»: заявки принимаются до {competition.registration_end:%d.%m.%Y}.",
+        f"/competitions/{competition.id}", dedupe_key=f"registration:{competition.id}",
+    )
+
+
 def validate_fields(data: dict) -> CompetitionFields:
     try:
         return CompetitionFields.model_validate(data)
@@ -134,6 +148,8 @@ async def create_competition(
     age_groups = await resolve_references(session, payload)
     competition = Competition(**payload.model_dump(exclude={"age_group_ids"}), age_groups=age_groups, is_archived=False)
     session.add(competition)
+    await session.flush()
+    await announce_registration(session, competition)
     await session.commit()
     await session.refresh(competition)
     return competition
@@ -193,6 +209,7 @@ async def change_competition_status(
     ensure_editable(competition)
 
     competition.status = payload.status
+    await announce_registration(session, competition)
     await session.commit()
     await session.refresh(competition)
     return competition

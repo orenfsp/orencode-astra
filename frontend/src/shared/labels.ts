@@ -1,6 +1,6 @@
 import type {
-  ApplicationStatus, CalendarPlan, CompetitionFormat, CompetitionLevel, CompetitionStatus, Gender, OrganizationType, ResultStatus,
-  Role, TrainingStage,
+  ApplicationStatus, CalendarPlan, CompetitionFormat, CompetitionLevel, CompetitionStatus, Gender, JudgeCategory, LinkStatus,
+  OrganizationType, RequestKind, RequestStatus, ResultStatus, Role, SportRank, TrainingStage, Validity,
 } from "./types";
 
 export const roleLabels: Record<Role, string> = {
@@ -85,4 +85,56 @@ export const resultStatusLabels: Record<ResultStatus, string> = {
 
 export function birthYear(value: string | null): string {
   return value ? value.slice(0, 4) : "—";
+}
+
+export const linkStatusLabels: Record<LinkStatus, string> = {
+  pending: "Ждёт подтверждения",
+  active: "Активна",
+  suspended: "Приостановлена",
+  ended: "Завершена",
+  declined: "Отклонена",
+};
+
+export const requestStatusLabels: Record<RequestStatus, string> = { pending: "На рассмотрении", approved: "Одобрена", rejected: "Отклонена" };
+
+export const requestKindLabels: Record<RequestKind, string> = { assign: "Присвоение", confirm: "Подтверждение" };
+
+export const rankLabels: Record<SportRank, string> = {
+  youth_3: "3 юношеский",
+  youth_2: "2 юношеский",
+  youth_1: "1 юношеский",
+  third: "3 спортивный",
+  second: "2 спортивный",
+  first: "1 спортивный",
+  kms: "КМС",
+};
+
+export const categoryLabels: Record<JudgeCategory, string> = {
+  young: "Юный спортивный судья",
+  third: "Судья 3 категории",
+  second: "Судья 2 категории",
+  first: "Судья 1 категории",
+  all_russian: "Судья всероссийской категории",
+};
+
+export const validityLabels: Record<Validity, string> = { none: "нет", valid: "действует", expiring: "скоро истекает", expired: "истёк" };
+
+/** Срок действия по умолчанию для формы решения федерации (лет); федерация проверяет и меняет. */
+export const rankValidityYears: Record<SportRank, number> = { youth_3: 2, youth_2: 2, youth_1: 2, third: 2, second: 2, first: 2, kms: 3 };
+export const categoryValidityYears: Record<JudgeCategory, number> = { young: 1, third: 2, second: 2, first: 4, all_russian: 4 };
+
+export function addYears(isoDate: string, years: number): string {
+  const [year, rest] = [Number(isoDate.slice(0, 4)), isoDate.slice(4)];
+  return `${year + years}${rest}`;
+}
+
+export function todayIso(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+export function daysLeftText(days: number): string {
+  if (days < 0) return `просрочено на ${-days} дн.`;
+  if (days === 0) return "сегодня";
+  return `через ${days} дн.`;
 }

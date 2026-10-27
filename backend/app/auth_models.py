@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Table, Column
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
@@ -25,6 +25,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # Момент согласия на обработку персональных данных (152-ФЗ), обязательно при регистрации.
     pd_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Дублировать уведомления на email (внешний канал).
+    email_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, lazy="selectin")
     sessions: Mapped[list[AuthSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

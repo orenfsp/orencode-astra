@@ -10,12 +10,15 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 import app.application_models  # noqa: F401 - registers application tables
+import app.coaching_models  # noqa: F401 - registers coach links
+import app.notification_models  # noqa: F401 - registers notifications
 import app.profile_models  # noqa: F401 - registers profile tables
+import app.qualification_models  # noqa: F401 - registers judges and ranks
 from app.auth_models import Role
 from app.database import get_session
 from app.main import app
 from app.models import Base
-from app.reference_data import seed_reference
+from app.reference_data import seed_rank_norms, seed_reference
 
 
 PASSWORD = "Correct-Horse-42"
@@ -36,6 +39,7 @@ class ApiDatabase:
             async with self.session_factory() as session:
                 session.add_all([Role(name=name) for name in ("athlete", "coach", "judge", "federation_admin")])
                 await seed_reference(session)
+                await seed_rank_norms(session)
                 if extra is not None:
                     await extra(session)
                 await session.commit()

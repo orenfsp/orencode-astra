@@ -113,6 +113,7 @@ class ProtocolRead(BaseModel):
 
 
 class HistoryItem(BaseModel):
+    application_id: int
     competition: CompetitionBrief
     age_group: AgeGroupRead
     place: int | None

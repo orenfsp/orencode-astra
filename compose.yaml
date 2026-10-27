@@ -25,6 +25,10 @@ services:
       ADMIN_REGISTRATION_CODE: ${ADMIN_REGISTRATION_CODE:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       UPLOAD_DIR: /app/uploads
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-ФСП Оренбург <noreply@fsp-orenburg.local>}
+      APP_URL: ${APP_URL:-http://localhost:5173}
     ports:
       - "8002:8000"
     volumes:
@@ -32,6 +36,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  # Почтовый ящик для демонстрации: все письма платформы видны на http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "8025:8025"
 
   test-db:
     image: postgres:17-alpine
@@ -57,6 +69,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://fsp_test:fsp_test@test-db:5432/fsp_test
       RUN_POSTGRES_INTEGRATION: "1"
+      BACKGROUND_JOBS: "0"
       ADMIN_EMAIL: integration-admin@example.test
       ADMIN_PASSWORD: Integration-Admin-Password-42
     depends_on:

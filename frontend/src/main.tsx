@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { Header } from "./app/Header";
 import { SessionProvider } from "./app/session";
+import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
+import { AdminJudgesPage } from "./pages/admin/AdminJudgesPage";
+import { AdminRanksPage } from "./pages/admin/AdminRanksPage";
 import { AdminCompetitionPage } from "./pages/admin/AdminCompetitionPage";
 import { AdminCompetitionsPage } from "./pages/admin/AdminCompetitionsPage";
 import { AdminReferencePage } from "./pages/admin/AdminReferencePage";
@@ -10,6 +13,7 @@ import { CabinetPage } from "./pages/CabinetPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { CompetitionPage } from "./pages/CompetitionPage";
 import { LoginPage } from "./pages/LoginPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { ProtocolPage } from "./pages/ProtocolPage";
 import { State } from "./shared/ui";
 import "./styles.css";
@@ -29,6 +33,10 @@ function App() {
           <Route path="/competitions/:id/protocol" element={<ProtocolPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cabinet" element={<CabinetPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/ranks" element={<AdminRanksPage />} />
+          <Route path="/admin/judges" element={<AdminJudgesPage />} />
           <Route path="/admin/competitions" element={<AdminCompetitionsPage />} />
           <Route path="/admin/competitions/:id" element={<AdminCompetitionPage />} />
           <Route path="/admin/reference" element={<AdminReferencePage />} />

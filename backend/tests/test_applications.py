@@ -214,9 +214,10 @@ class ApplicationFlowTests(unittest.TestCase):
         self.assertEqual(self.client.put(f"/api/v1/competitions/{competition_id}/results", json={"results": [{"application_id": 1, "score": 1}]}, headers=headers).status_code, 403)
         self.assertEqual(self.client.post(f"/api/v1/competitions/{competition_id}/applications").status_code, 403)
 
-        # Тренер с тем же аккаунтом не может подать заявку из кабинета тренера.
+        # Из кабинета тренера заявку подают только за привязанного спортсмена.
         self.client.post("/api/v1/auth/roles", json={"role": "coach"}, headers=headers)
-        self.assertEqual(self.client.post(f"/api/v1/competitions/{competition_id}/applications", headers=headers).status_code, 403)
+        self.assertEqual(self.client.post(f"/api/v1/competitions/{competition_id}/applications", headers=headers).status_code, 422)
+        self.assertEqual(self.client.post(f"/api/v1/competitions/{competition_id}/applications", json={"athlete_id": 1}, headers=headers).status_code, 403)
         self.assertFalse(self.client.get(f"/api/v1/competitions/{competition_id}/eligibility").json()["eligible"])
 
         self.client.cookies.clear()

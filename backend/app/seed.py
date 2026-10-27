@@ -10,7 +10,7 @@ from app.models import (
     AgeGroup, CalendarPlan, Competition, CompetitionFormat, CompetitionLevel, CompetitionStatus,
     CompetitionType, Discipline, Municipality, Organization, OrganizationType,
 )
-from app.reference_data import seed_reference
+from app.reference_data import seed_rank_norms, seed_reference
 
 
 ORGANIZATIONS = [
@@ -59,6 +59,7 @@ COMPETITIONS = [
 async def seed() -> None:
     async with SessionFactory() as session:
         await seed_reference(session)
+        await seed_rank_norms(session)
 
         municipalities = {item.name: item for item in await session.scalars(select(Municipality))}
         existing_orgs = set(await session.scalars(select(Organization.name)))

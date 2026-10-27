@@ -1,12 +1,64 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../app/session";
-import { API_BASE, api, errorText } from "../shared/api";
+import { API_BASE, api, errorText, json } from "../shared/api";
 import { applicationStatusLabels, formatDate, formatLabels, formatRange, levelLabels, planLabels } from "../shared/labels";
-import type { Application, Competition, Eligibility } from "../shared/types";
+import type { Application, CoachLink, Competition, Eligibility } from "../shared/types";
 import { FormError, Notice, State, StatusBadge } from "../shared/ui";
 
+type CoachRow = { link: CoachLink; eligibility: Eligibility };
+
+/** Тренер видит своих спортсменов по дисциплине соревнования и подаёт заявку за каждого. */
+function CoachApplyBlock({ competition }: { competition: Competition }) {
+  const [rows, setRows] = useState<CoachRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const links = (await api<CoachLink[]>("/coach/links")).filter((link) => link.status === "active" && link.discipline.id === competition.discipline.id);
+    setRows(await Promise.all(links.map(async (link) => ({ link, eligibility: await api<Eligibility>(`/competitions/${competition.id}/eligibility?athlete_id=${link.athlete.id}`) }))));
+  }, [competition.id, competition.discipline.id]);
+  useEffect(() => { load().catch((reason) => setError(errorText(reason))); }, [load]);
+
+  async function apply(row: CoachRow) {
+    setError(null); setNotice(null);
+    try {
+      await api(`/competitions/${competition.id}/applications`, json("POST", { athlete_id: row.link.athlete.id }));
+      setNotice(`Заявка за ${row.link.athlete.full_name} отправлена на модерацию`);
+      await load();
+    } catch (reason) { setError(errorText(reason)); }
+  }
+
+  return (
+    <section className="card apply-card">
+      <h2>Заявки за спортсменов</h2>
+      <p className="muted">Приём заявок до {formatDate(competition.registration_end)}</p>
+      {rows?.length === 0 && <p className="muted">Нет спортсменов с активной связью по дисциплине «{competition.discipline.name}». <Link to="/cabinet">Мои спортсмены</Link></p>}
+      <ul className="ref-list">
+        {rows?.map((row) => (
+          <li key={row.link.id}>
+            <span>{row.link.athlete.full_name}<br />
+              <small className="muted">{row.eligibility.eligible ? `Группа: ${row.eligibility.age_group?.name}` : row.eligibility.reasons.join("; ")}</small></span>
+            <span className="row-actions">
+              {row.eligibility.application_status && row.eligibility.application_status !== "withdrawn"
+                ? <span className={`app-status app-status--${row.eligibility.application_status}`}>{applicationStatusLabels[row.eligibility.application_status]}</span>
+                : row.eligibility.eligible && <button type="button" className="button button--small" onClick={() => void apply(row)}>Подать заявку</button>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <FormError error={error} /><Notice text={notice} />
+    </section>
+  );
+}
+
 function ApplicationBlock({ competition }: { competition: Competition }) {
+  const { user } = useSession();
+  if (user?.active_role === "coach" && competition.status === "registration_open") return <CoachApplyBlock competition={competition} />;
+  return <AthleteApplyBlock competition={competition} />;
+}
+
+function AthleteApplyBlock({ competition }: { competition: Competition }) {
   const { user } = useSession();
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [error, setError] = useState<string | null>(null);

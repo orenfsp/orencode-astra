@@ -20,7 +20,7 @@ function Logo() {
 }
 
 export function Header() {
-  const { user, switchRole, logout } = useSession();
+  const { user, switchRole, logout, unread } = useSession();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +51,10 @@ export function Header() {
                     {user.roles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
                   </select>
                 </label>
+                <Link className="bell" to="/notifications" aria-label={unread ? `Уведомления: ${unread} непрочитанных` : "Уведомления"}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 15v1h15v-1L18 12.5V9a6 6 0 0 0-6-6Zm0 18a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 21Z" /></svg>
+                  {unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
+                </Link>
                 <button type="button" className="link-button" onClick={() => void onLogout()}>Выйти</button>
               </>
             )}
@@ -62,7 +66,10 @@ export function Header() {
         <nav id="main-nav" className={`header-nav${open ? " is-open" : ""}`} aria-label="Основная навигация" onClick={() => setOpen(false)}>
           <NavLink to="/" end>Календарь</NavLink>
           {user && <NavLink to="/cabinet">Кабинет</NavLink>}
+          {isAdmin && <NavLink to="/admin" end>Дашборд</NavLink>}
           {isAdmin && <NavLink to="/admin/competitions">Соревнования</NavLink>}
+          {isAdmin && <NavLink to="/admin/ranks">Разряды</NavLink>}
+          {isAdmin && <NavLink to="/admin/judges">Судьи</NavLink>}
           {isAdmin && <NavLink to="/admin/reference">Справочники</NavLink>}
         </nav>
         {error && <p className="header-error" role="alert">{error}</p>}

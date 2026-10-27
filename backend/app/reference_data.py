@@ -3,7 +3,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AgeGroup, CompetitionType, Discipline, JudgePosition, Municipality
+from app.models import AgeGroup, CompetitionLevel, CompetitionType, Discipline, JudgePosition, Municipality
+from app.qualification_models import RankNorm, SportRank
 
 
 DISCIPLINES = [
@@ -35,6 +36,21 @@ JUDGE_POSITIONS = [
     "Главный судья", "Заместитель главного судьи", "Главный секретарь",
     "Заместитель главного секретаря", "Судья", "Технический специалист",
 ]
+
+
+# Ориентиры для подсветки кандидатов на разряд (уровень, место не ниже, разряд).
+# Федерация сверяет и правит их по действующим нормам ЕВСК через PUT /api/v1/rank-norms.
+RANK_NORMS = [
+    ("all_russian", 3, "kms"), ("all_russian", 8, "first"), ("all_russian", 16, "second"),
+    ("interregional", 3, "first"), ("interregional", 6, "second"), ("interregional", 10, "third"),
+    ("regional", 3, "second"), ("regional", 6, "third"), ("regional", 10, "youth_1"),
+]
+
+
+async def seed_rank_norms(session: AsyncSession) -> None:
+    if await session.scalar(select(RankNorm.id).limit(1)) is None:
+        session.add_all(RankNorm(level=CompetitionLevel(level), max_place=place, rank=SportRank(rank)) for level, place, rank in RANK_NORMS)
+        await session.flush()
 
 
 async def seed_reference(session: AsyncSession) -> None:

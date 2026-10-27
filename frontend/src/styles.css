@@ -213,11 +213,45 @@ ol.ref-list { list-style: decimal inside; }
   .protocol-table th, .protocol-table td { padding: 6px 8px; }
 }
 
+
+/* ---------- Этап 2: сроки, уведомления, дашборд ---------- */
+.bell { position: relative; display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 8px; color: var(--ink); }
+.bell:hover { background: rgba(0, 0, 0, 0.06); }
+.bell svg { width: 22px; height: 22px; fill: currentColor; }
+.bell-count { position: absolute; top: -2px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.deadline-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.deadline { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: start; padding: 10px 12px; border-radius: 8px; border-left: 3px solid var(--line); background: var(--bg); font-size: 14px; }
+.deadline--warning { border-left-color: var(--warn); }
+.deadline--danger { border-left-color: var(--danger); }
+.deadline-date { display: grid; gap: 2px; }
+.deadline-date small { color: var(--muted); font-size: 12px; }
+.form-warning { color: var(--warn); font-size: 14px; }
+.notification-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.notification-list li { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-raised); }
+.notification-list li.is-unread { border-color: var(--accent); }
+.notification-list p { color: #cfcfd4; margin: 6px 0; line-height: 1.5; font-size: 14px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 6px; }
+.stat strong { font-size: 32px; font-weight: 500; color: var(--text); }
+.stat span { color: var(--muted); font-size: 13px; }
+.dashboard-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.counter-badge { min-width: 28px; text-align: center; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 13px; }
+.ref-list li.stacked { display: grid; gap: 10px; }
+.row-split { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.decision { display: grid; gap: 10px; padding: 12px; background: var(--bg); border-radius: 8px; }
+.decision-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.decision .chip-filter { margin-bottom: 0; }
+.quote { margin: 8px 0 0; padding-left: 12px; border-left: 2px solid var(--line); color: #cfcfd4; font-size: 14px; white-space: pre-wrap; }
+.history-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
+.mini-results { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 2px; }
+details summary { cursor: pointer; }
+
 /* ---------- Адаптивность ---------- */
 @media (max-width: 1000px) {
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cabinet-grid { grid-template-columns: 1fr; }
+  .cabinet-grid, .dashboard-grid { grid-template-columns: 1fr; }
+  .decision-fields { grid-template-columns: 1fr; }
   .admin-row { grid-template-columns: 1fr; }
   .admin-actions { justify-content: flex-start; max-width: none; }
 }

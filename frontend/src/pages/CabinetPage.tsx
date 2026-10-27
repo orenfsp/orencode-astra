@@ -6,6 +6,10 @@ import { api, errorText, json } from "../shared/api";
 import { applicationStatusLabels, formatDate, genderLabels, keys, levelLabels, resultStatusLabels, roleLabels, stageLabels } from "../shared/labels";
 import type { Application, HistoryItem, MyProfile, Role } from "../shared/types";
 import { FormError, GuestNotice, Notice, PageTitle, State } from "../shared/ui";
+import { DeadlinesCard } from "../shared/widgets";
+import { MyCoaches, MyRankCard } from "./cabinet/AthletePanels";
+import { CoachPanel } from "./cabinet/CoachPanel";
+import { JudgePanel } from "./cabinet/JudgePanel";
 
 const PUBLIC_ROLES: Role[] = ["athlete", "coach", "judge"];
 
@@ -195,7 +199,6 @@ function CoachForm({ data, onSaved }: { data: MyProfile; onSaved: (data: MyProfi
           {reference?.organizations.filter((item) => item.is_active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
-      <p className="muted form-wide">Привязка спортсменов и заявки за них появятся на следующем этапе.</p>
       <FormError error={error} /><Notice text={notice} />
       <button className="button form-wide">Сохранить</button>
     </form>
@@ -267,6 +270,27 @@ function MyResults() {
   );
 }
 
+function EmailSettings() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { api<{ email_notifications: boolean }>("/me/settings").then((data) => setEnabled(data.email_notifications)).catch(() => setEnabled(null)); }, []);
+  if (enabled === null) return null;
+
+  async function toggle(value: boolean) {
+    setError(null);
+    try { setEnabled((await api<{ email_notifications: boolean }>("/me/settings", json("PUT", { email_notifications: value }))).email_notifications); } catch (reason) { setError(errorText(reason)); }
+  }
+
+  return (
+    <section className="card">
+      <h2>Уведомления</h2>
+      <label className="checkbox"><input type="checkbox" checked={enabled} onChange={(event) => void toggle(event.target.checked)} /><span>Дублировать уведомления на email</span></label>
+      <p className="muted">В кабинете уведомления приходят всегда: <Link to="/notifications">все уведомления</Link>.</p>
+      <FormError error={error} />
+    </section>
+  );
+}
+
 export function CabinetPage() {
   const { user } = useSession();
   const [data, setData] = useState<MyProfile | null>(null);
@@ -288,20 +312,25 @@ export function CabinetPage() {
       <div className="cabinet-grid">
         <div className="stack">
           <RolesCard />
+          <DeadlinesCard role={user.active_role} />
           {user.active_role === "federation_admin" && (
             <section className="card">
               <h2>Федерация</h2>
-              <p className="muted">Управление календарём и справочниками.</p>
-              <div className="role-add"><Link className="button button--small" to="/admin/competitions">Соревнования</Link><Link className="button button--small button--ghost" to="/admin/reference">Справочники</Link></div>
+              <p className="muted">Дашборд, календарь, разряды, судьи и справочники.</p>
+              <div className="role-add"><Link className="button button--small" to="/admin">Открыть дашборд</Link></div>
             </section>
           )}
-          {user.active_role === "judge" && <State code="03" title="Кабинет судьи" text="Категория, назначения и заявки на категорию появятся на следующем этапе." />}
+          <EmailSettings />
         </div>
         <div className="stack">
           {error && <State code="ERR" title="Профиль не загрузился" text={error} />}
-          {data && <ProfileForm key={`p-${data.profile?.last_name}`} data={data} onSaved={setData} />}
           {user.active_role === "athlete" && <MyApplications />}
           {user.active_role === "athlete" && <MyResults />}
+          {user.active_role === "athlete" && <MyRankCard />}
+          {user.active_role === "athlete" && <MyCoaches />}
+          {user.active_role === "coach" && <CoachPanel />}
+          {user.active_role === "judge" && <JudgePanel />}
+          {data && <ProfileForm key={`p-${data.profile?.last_name}`} data={data} onSaved={setData} />}
           {data && user.active_role === "athlete" && <AthleteForm key={`a-${data.profile?.birth_date}`} data={data} onSaved={setData} />}
           {data && user.active_role === "coach" && <CoachForm data={data} onSaved={setData} />}
         </div>

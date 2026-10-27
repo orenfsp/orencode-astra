@@ -15,8 +15,11 @@ from app.application_schemas import (
 from app.auth_models import AuthSession, User
 from app.auth_routes import current_auth_session, is_active_admin, optional_auth_session, require_roles
 from app.auth_security import utcnow
+from app.coaching_models import CoachLink, LinkStatus
 from app.database import get_session
 from app.models import AgeGroup, Competition, CompetitionStatus
+from app.notifications import admin_ids, notify
+from app.people import athlete_briefs
 from app.profile_models import AthleteProfile, Profile
 from app.protocol import Entry, competition_age, fitting_groups, rank
 from app.schemas import AgeGroupRead
@@ -35,23 +38,7 @@ async def _competition(db: AsyncSession, competition_id: int) -> Competition:
     return competition
 
 
-async def _athletes(db: AsyncSession, user_ids: set[int]) -> dict[int, AthleteBrief]:
-    if not user_ids:
-        return {}
-    profiles = {item.user_id: item for item in await db.scalars(select(Profile).where(Profile.user_id.in_(user_ids)))}
-    athletes = {item.user_id: item for item in await db.scalars(select(AthleteProfile).where(AthleteProfile.user_id.in_(user_ids)))}
-    briefs = {}
-    for user_id in user_ids:
-        profile, athlete = profiles.get(user_id), athletes.get(user_id)
-        name = " ".join(part for part in (profile.last_name, profile.first_name, profile.middle_name) if part) if profile else f"Спортсмен #{user_id}"
-        briefs[user_id] = AthleteBrief(
-            id=user_id,
-            full_name=name,
-            birth_date=profile.birth_date if profile else None,
-            municipality=profile.municipality.name if profile and profile.municipality else None,
-            organization=athlete.organization.name if athlete and athlete.organization else None,
-        )
-    return briefs
+_athletes = athlete_briefs
 
 
 def _read(application: Application, athletes: dict[int, AthleteBrief]) -> ApplicationRead:
@@ -106,17 +93,41 @@ async def _existing(db: AsyncSession, competition_id: int, athlete_id: int) -> A
 
 # ---------- athlete ----------
 
+async def coach_can_enter(db: AsyncSession, coach_id: int, athlete_id: int, discipline_id: int) -> bool:
+    """Тренер подаёт заявки только за спортсменов с активной связью по дисциплине соревнования."""
+    link = await db.scalar(select(CoachLink.id).where(
+        CoachLink.coach_id == coach_id, CoachLink.athlete_id == athlete_id,
+        CoachLink.discipline_id == discipline_id, CoachLink.status == LinkStatus.ACTIVE,
+    ))
+    return link is not None
+
+
+async def _subject(db: AsyncSession, auth_session: AuthSession, competition: Competition, athlete_id: int | None) -> tuple[int | None, str | None]:
+    """Resolve whose application this is for the active role; return (athlete_id, refusal)."""
+    if auth_session.active_role == "athlete":
+        return auth_session.user_id, None
+    if auth_session.active_role == "coach":
+        if athlete_id is None:
+            return None, "Выберите спортсмена"
+        if not await coach_can_enter(db, auth_session.user_id, athlete_id, competition.discipline_id):
+            return None, f"Нет активной связи со спортсменом по дисциплине «{competition.discipline.name}»"
+        return athlete_id, None
+    return None, "Заявку подаёт спортсмен или его тренер"
+
+
 @router.get("/competitions/{competition_id}/eligibility", response_model=Eligibility)
 async def eligibility(
     competition_id: Annotated[int, Path(gt=0)],
+    athlete_id: Annotated[int | None, Query(gt=0)] = None,
     auth_session: AuthSession = Depends(current_auth_session),
     db: AsyncSession = Depends(get_session),
 ) -> Eligibility:
     competition = await _competition(db, competition_id)
-    if auth_session.active_role != "athlete":
-        return Eligibility(eligible=False, reasons=["Заявку подают из кабинета спортсмена"], age=None, age_group=None, application_id=None, application_status=None)
-    reasons, age, groups = await _check_eligibility(db, competition, auth_session.user_id)
-    existing = await _existing(db, competition.id, auth_session.user_id)
+    subject, refusal = await _subject(db, auth_session, competition, athlete_id)
+    if subject is None:
+        return Eligibility(eligible=False, reasons=[refusal or ""], age=None, age_group=None, application_id=None, application_status=None)
+    reasons, age, groups = await _check_eligibility(db, competition, subject)
+    existing = await _existing(db, competition.id, subject)
     if existing is not None and existing.status in {ApplicationStatus.PENDING, ApplicationStatus.APPROVED}:
         reasons.insert(0, "Заявка уже подана")
     return Eligibility(
@@ -131,17 +142,24 @@ async def eligibility(
 
 class ApplyRequest(BaseModel):
     age_group_id: int | None = None
+    athlete_id: int | None = None
 
 
 @router.post("/competitions/{competition_id}/applications", response_model=ApplicationRead, status_code=201)
 async def apply(
     competition_id: Annotated[int, Path(gt=0)],
     payload: ApplyRequest | None = None,
-    user: User = Depends(require_roles("athlete", csrf=True)),
+    _user: User = Depends(require_roles("athlete", "coach", csrf=True)),
+    auth_session: AuthSession = Depends(current_auth_session),
     db: AsyncSession = Depends(get_session),
 ) -> ApplicationRead:
     competition = await _competition(db, competition_id)
-    reasons, _age, groups = await _check_eligibility(db, competition, user.id)
+    athlete_id, refusal = await _subject(db, auth_session, competition, payload.athlete_id if payload else None)
+    if athlete_id is None:
+        # Попытка тренера подать заявку за чужого спортсмена — это отказ в правах, а не ошибка ввода.
+        no_link = auth_session.active_role == "coach" and payload is not None and payload.athlete_id is not None
+        raise HTTPException(status_code=403 if no_link else 422, detail=refusal)
+    reasons, _age, groups = await _check_eligibility(db, competition, athlete_id)
     if reasons:
         raise HTTPException(status_code=422, detail="; ".join(reasons))
     group = groups[0]
@@ -150,24 +168,29 @@ async def apply(
         if group is None:
             raise HTTPException(status_code=422, detail="Спортсмен не проходит в выбранную возрастную группу")
 
-    application = await _existing(db, competition.id, user.id)
+    application = await _existing(db, competition.id, athlete_id)
     if application is not None and application.status in {ApplicationStatus.PENDING, ApplicationStatus.APPROVED}:
         raise HTTPException(status_code=409, detail="Заявка на это соревнование уже подана")
     if application is None:
-        application = Application(competition_id=competition.id, athlete_id=user.id)
+        application = Application(competition_id=competition.id, athlete_id=athlete_id)
         db.add(application)
     # Отозванную или отклонённую заявку можно подать повторно.
     application.age_group_id = group.id
-    application.submitted_by_id = user.id
-    application.submitted_role = "athlete"
+    application.submitted_by_id = auth_session.user_id
+    application.submitted_role = auth_session.active_role
     application.status = ApplicationStatus.PENDING
     application.moderator_comment = None
     application.created_at = utcnow()
     application.decided_at = None
     application.decided_by_id = None
+    athletes = await _athletes(db, {athlete_id})
+    link = f"/admin/competitions/{competition.id}"
+    await notify(db, await admin_ids(db), "application_new", "Новая заявка на соревнование", f"{athletes[athlete_id].full_name} — «{competition.title}»", link)
+    if auth_session.active_role == "coach":
+        await notify(db, {athlete_id}, "application_by_coach", "Тренер подал за вас заявку", f"Соревнование «{competition.title}». Статус заявки — в кабинете.", f"/competitions/{competition.id}")
     await db.commit()
     await db.refresh(application, ["competition", "age_group", "result"])
-    return _read(application, await _athletes(db, {user.id}))
+    return _read(application, athletes)
 
 
 @router.get("/me/applications", response_model=list[ApplicationRead])
@@ -195,12 +218,16 @@ async def withdraw(
 
 @router.get("/me/results", response_model=list[HistoryItem])
 async def my_results(user: User = Depends(require_roles("athlete")), db: AsyncSession = Depends(get_session)) -> list[HistoryItem]:
+    return await my_results_for(db, user.id)
+
+
+async def my_results_for(db: AsyncSession, athlete_id: int) -> list[HistoryItem]:
     """История выступлений: только опубликованные протоколы."""
     rows = list(await db.scalars(
         select(Application)
         .join(Competition, Competition.id == Application.competition_id)
         .join(Result, Result.application_id == Application.id)
-        .where(Application.athlete_id == user.id, Competition.protocol_published_at.is_not(None))
+        .where(Application.athlete_id == athlete_id, Competition.protocol_published_at.is_not(None))
         .order_by(Competition.date.desc())
     ))
     history = []
@@ -213,6 +240,7 @@ async def my_results(user: User = Depends(require_roles("athlete")), db: AsyncSe
             )
         )))
         history.append(HistoryItem(
+            application_id=application.id,
             competition=CompetitionBrief.model_validate(application.competition),
             age_group=AgeGroupRead.model_validate(application.age_group),
             place=application.result.place,
@@ -257,6 +285,11 @@ async def decide(
     application.moderator_comment = payload.comment
     application.decided_at = utcnow()
     application.decided_by_id = admin.id
+    verdict = "одобрена" if application.status == ApplicationStatus.APPROVED else f"отклонена: {payload.comment}"
+    await notify(
+        db, {application.athlete_id, application.submitted_by_id}, "application_decision", "Решение по заявке",
+        f"Заявка на «{application.competition.title}» {verdict}", f"/competitions/{application.competition_id}",
+    )
     await db.commit()
     return _read(application, await _athletes(db, {application.athlete_id}))
 
@@ -360,6 +393,11 @@ async def publish_protocol(
         raise HTTPException(status_code=409, detail="Внесите результаты всем допущенным участникам")
     competition.protocol_published_at = utcnow()
     competition.status = CompetitionStatus.COMPLETED
+    participants = {item.athlete_id for item in await _approved(db, competition.id)}
+    await notify(
+        db, participants, "protocol_published", "Опубликован протокол", f"Результаты соревнования «{competition.title}» доступны в истории выступлений.",
+        f"/competitions/{competition.id}/protocol", dedupe_key=f"protocol:{competition.id}",
+    )
     await db.commit()
     return await _protocol(db, competition)
 

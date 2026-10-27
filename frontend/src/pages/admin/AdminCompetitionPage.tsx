@@ -1,13 +1,83 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useSession } from "../../app/session";
 import { api, errorText, json } from "../../shared/api";
-import { applicationStatusLabels, birthYear, formatDate, formatRange, keys, resultStatusLabels } from "../../shared/labels";
-import type { Application, ApplicationStatus, Competition, Protocol, ResultStatus } from "../../shared/types";
+import { applicationStatusLabels, birthYear, categoryLabels, formatDate, formatRange, keys, resultStatusLabels } from "../../shared/labels";
+import type { Application, ApplicationStatus, Competition, JudgeAssignment, JudgeRow, Protocol, ResultStatus } from "../../shared/types";
 import { FormError, Notice, PageTitle, State, StatusBadge } from "../../shared/ui";
+import { ValidityBadge } from "../../shared/widgets";
 import { ProtocolTable } from "../ProtocolPage";
 import { AdminGate } from "./AdminGate";
 
-type Tab = "applications" | "results" | "protocol";
+type Tab = "applications" | "judges" | "results" | "protocol";
+
+function JudgesTab({ competition }: { competition: Competition }) {
+  const { reference } = useSession();
+  const [panel, setPanel] = useState<JudgeAssignment[]>([]);
+  const [judges, setJudges] = useState<JudgeRow[]>([]);
+  const [form, setForm] = useState({ judge_id: "", position_id: "" });
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    api<JudgeAssignment[]>(`/competitions/${competition.id}/judges`).then(setPanel).catch((reason) => setError(errorText(reason)));
+    api<JudgeRow[]>("/judges").then(setJudges).catch(() => setJudges([]));
+  }, [competition.id]);
+  useEffect(load, [load]);
+
+  const assigned = new Set(panel.map((item) => item.judge_id));
+  async function assign(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await api(`/competitions/${competition.id}/judges`, json("POST", { judge_id: Number(form.judge_id), position_id: Number(form.position_id) }));
+      setForm({ judge_id: "", position_id: form.position_id });
+      load();
+    } catch (reason) { setError(errorText(reason)); }
+  }
+  async function remove(item: JudgeAssignment) {
+    setError(null);
+    try { await api(`/competitions/${competition.id}/judges/${item.id}`, { method: "DELETE" }); load(); } catch (reason) { setError(errorText(reason)); }
+  }
+
+  return (
+    <>
+      {panel.length === 0 && <State code="00" title="Коллегия не сформирована" text="Назначьте судей и их должности." />}
+      {panel.length > 0 && (
+        <div className="table-wrap">
+          <table className="protocol-table">
+            <thead><tr><th>Должность</th><th>Судья</th><th>Категория</th><th /></tr></thead>
+            <tbody>
+              {panel.map((item) => {
+                const info = judges.find((judge) => judge.judge_id === item.judge_id)?.info;
+                return (
+                  <tr key={item.id}>
+                    <td>{item.position.name}</td>
+                    <td>{item.judge_name}</td>
+                    <td>{info?.category ? <>{categoryLabels[info.category]} <ValidityBadge validity={info.validity} until={info.category_expires_on} /></> : <span className="muted">без категории</span>}</td>
+                    <td className="row-actions"><button type="button" className="link-button danger" onClick={() => void remove(item)}>Снять</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form className="inline-form" onSubmit={assign}>
+        <select required value={form.judge_id} onChange={(event) => setForm({ ...form, judge_id: event.target.value })}>
+          <option value="">Судья</option>
+          {judges.filter((item) => !assigned.has(item.judge_id)).map((item) => <option key={item.judge_id} value={item.judge_id}>{item.name}{item.info.category ? ` — ${categoryLabels[item.info.category]}` : ""}</option>)}
+        </select>
+        <select required value={form.position_id} onChange={(event) => setForm({ ...form, position_id: event.target.value })}>
+          <option value="">Должность</option>
+          {reference?.judge_positions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+        <button className="button button--small">Назначить</button>
+      </form>
+      {judges.length === 0 && <p className="muted">В реестре нет судей: пользователь добавляет себе роль судьи в кабинете.</p>}
+      <FormError error={error} />
+    </>
+  );
+}
 type Draft = { score: string; result_status: ResultStatus };
 
 function Applications({ items, reload }: { items: Application[]; reload: () => void }) {
@@ -185,11 +255,12 @@ function Manage({ competitionId }: { competitionId: string }) {
         <p className="lead"><StatusBadge status={competition.status} /> {formatRange(competition.date, competition.end_date)} · заявок на модерации: {pending} · допущено: {approved}</p>
       </PageTitle>
       <div className="tabs" role="tablist">
-        {([["applications", `Заявки${pending ? ` · ${pending}` : ""}`], ["results", "Результаты"], ["protocol", "Протокол"]] as [Tab, string][]).map(([key, label]) => (
+        {([["applications", `Заявки${pending ? ` · ${pending}` : ""}`], ["judges", "Судейская коллегия"], ["results", "Результаты"], ["protocol", "Протокол"]] as [Tab, string][]).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "is-active" : ""} onClick={() => { setTab(key); load(); }}>{label}</button>
         ))}
       </div>
       {tab === "applications" && <Applications items={applications} reload={load} />}
+      {tab === "judges" && <JudgesTab competition={competition} />}
       {tab === "results" && <Results key={protocol.groups.map((group) => group.rows.length).join("-") + (protocol.published_at ?? "")} competition={competition} protocol={protocol} onSaved={setProtocol} />}
       {tab === "protocol" && <ProtocolTab competition={competition} protocol={protocol} onChange={(next) => { setProtocol(next); load(); }} />}
     </>
