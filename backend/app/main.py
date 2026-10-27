@@ -1,46 +1,11 @@
-from datetime import date
-from typing import Literal
-
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-
-class Competition(BaseModel):
-    id: int
-    title: str
-    discipline: str
-    date: date
-    location: str
-    status: Literal["registration_open", "upcoming", "completed"]
-
-
-COMPETITIONS = (
-    Competition(
-        id=1,
-        title="Кубок города по программированию",
-        discipline="Алгоритмическое программирование",
-        date=date(2026, 11, 15),
-        location="Оренбург",
-        status="registration_open",
-    ),
-    Competition(
-        id=2,
-        title="Осенний хакатон",
-        discipline="Продуктовое программирование",
-        date=date(2026, 11, 28),
-        location="Самара",
-        status="upcoming",
-    ),
-    Competition(
-        id=3,
-        title="Data Science Challenge",
-        discipline="Программирование систем искусственного интеллекта",
-        date=date(2026, 10, 10),
-        location="Онлайн",
-        status="completed",
-    ),
-)
+from app.database import get_session
+from app.models import Competition
+from app.schemas import CompetitionRead
 
 app = FastAPI(title="FSP API", version="0.1.0")
 
@@ -61,6 +26,9 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/v1/competitions", response_model=list[Competition])
-async def get_competitions() -> tuple[Competition, ...]:
-    return COMPETITIONS
+@app.get("/api/v1/competitions", response_model=list[CompetitionRead])
+async def get_competitions(
+    session: AsyncSession = Depends(get_session),
+) -> list[Competition]:
+    result = await session.scalars(select(Competition).order_by(Competition.id))
+    return list(result.all())

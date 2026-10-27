@@ -11,7 +11,7 @@ type Competition = {
   status: string;
 };
 
-const API_URL = "http://127.0.0.1:8000/api/v1/competitions";
+const API_URL = "http://127.0.0.1:8002/api/v1/competitions";
 
 const statusLabels: Record<string, string> = {
   upcoming: "Скоро",
@@ -28,7 +28,7 @@ function formatDate(value: string) {
   }
 
   return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
+    day: "2-digit",
     month: "long",
     year: "numeric",
   }).format(parsedDate);
@@ -80,78 +80,116 @@ function App() {
   }, []);
 
   return (
-    <main>
-      <section className="hero">
-        <div className="hero__content">
-          <span className="eyebrow">Платформа ФСП</span>
-          <h1>Соревнуйся. Развивайся. Побеждай.</h1>
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="header-main page-width">
+          <a className="brand" href="#top" aria-label="ФСП Оренбургская область">
+            <span className="brand-mark" aria-hidden="true">
+              <i /><i /><i /><i />
+            </span>
+            <span className="brand-short">ФСП</span>
+            <span className="brand-region">Оренбургская<br />область</span>
+          </a>
+          <div className="header-meta">
+            <span className="region-code">REG / 56</span>
+            <span className="signal"><i /> Система работает</span>
+          </div>
+        </div>
+        <div className="header-nav">
+          <nav className="page-width" aria-label="Основная навигация">
+            <a className="is-active" href="#competitions">Соревнования</a>
+            <span>О федерации</span>
+            <span>Дисциплины</span>
+            <span>Оренбург · UTC+5</span>
+          </nav>
+        </div>
+      </header>
+
+      <main id="top">
+        <section className="intro page-width" aria-labelledby="page-title">
+          <div className="intro-copy">
+            <span className="eyebrow">Региональный календарь / 2026</span>
+            <h1 id="page-title">Спортивное<br />программирование</h1>
+          </div>
           <p>
-            Актуальные турниры Федерации спортивного программирования — в одном месте.
+            Турниры, чемпионаты и открытые соревнования<br className="desktop-break" />
+            Оренбургской области.
           </p>
-        </div>
-      </section>
+        </section>
 
-      <section className="competitions" aria-labelledby="competitions-title">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">Календарь</span>
-            <h2 id="competitions-title">Ближайшие соревнования</h2>
+        <section className="competitions page-width" id="competitions" aria-labelledby="competitions-title">
+          <div className="section-heading">
+            <div>
+              <span className="section-index">01</span>
+              <h2 id="competitions-title">Ближайшие события</h2>
+            </div>
+            {!isLoading && !error && competitions.length > 0 && (
+              <span className="counter">{String(competitions.length).padStart(2, "0")} / в календаре</span>
+            )}
           </div>
-          {!isLoading && !error && competitions.length > 0 && (
-            <span className="counter">{competitions.length} событий</span>
+
+          {isLoading && (
+            <div className="state" role="status">
+              <span className="loader" aria-hidden="true" />
+              <div><strong>Получаем календарь</strong><span>Синхронизация с региональным API…</span></div>
+            </div>
           )}
-        </div>
 
-        {isLoading && (
-          <div className="state" role="status">
-            <span className="loader" aria-hidden="true" />
-            Загружаем соревнования…
-          </div>
-        )}
+          {error && (
+            <div className="state state--error" role="alert">
+              <span className="state-code">ERR</span>
+              <div><strong>Не удалось загрузить список</strong><span>{error}. Проверьте, что API запущен.</span></div>
+            </div>
+          )}
 
-        {error && (
-          <div className="state state--error" role="alert">
-            <strong>Не удалось загрузить список</strong>
-            <span>{error}. Проверьте, что API запущен.</span>
-          </div>
-        )}
+          {!isLoading && !error && competitions.length === 0 && (
+            <div className="state">
+              <span className="state-code">00</span>
+              <div><strong>Событий пока нет</strong><span>Новые соревнования появятся здесь после публикации.</span></div>
+            </div>
+          )}
 
-        {!isLoading && !error && competitions.length === 0 && (
-          <div className="state">Пока нет запланированных соревнований.</div>
-        )}
-
-        {!isLoading && !error && competitions.length > 0 && (
-          <div className="competition-grid">
-            {competitions.map((competition) => (
-              <article className="competition-card" key={competition.id}>
-                <div className="card-topline">
-                  <span className="discipline">{competition.discipline}</span>
-                  <span className={`status status--${competition.status}`}>
-                    {statusLabels[competition.status] ?? competition.status}
-                  </span>
-                </div>
-                <h3>{competition.title}</h3>
-                <dl>
-                  <div>
-                    <dt>Дата</dt>
-                    <dd>{formatDate(competition.date)}</dd>
+          {!isLoading && !error && competitions.length > 0 && (
+            <div className="competition-list">
+              {competitions.map((competition, index) => (
+                <article className="competition-row" key={competition.id}>
+                  <div className="row-number">{String(index + 1).padStart(2, "0")}</div>
+                  <div className="competition-main">
+                    <div className="card-topline">
+                      <span className={`status status--${competition.status}`}>
+                        <i aria-hidden="true" />
+                        {statusLabels[competition.status] ?? competition.status}
+                      </span>
+                      <span className="discipline">{competition.discipline}</span>
+                    </div>
+                    <h3>{competition.title}</h3>
                   </div>
-                  <div>
-                    <dt>Место</dt>
-                    <dd>{competition.location}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
+                  <dl>
+                    <div>
+                      <dt>Дата</dt>
+                      <dd>{formatDate(competition.date)}</dd>
+                    </div>
+                    <div>
+                      <dt>Формат / место</dt>
+                      <dd>{competition.location}</dd>
+                    </div>
+                  </dl>
+                  <span className="row-arrow" aria-hidden="true">↗</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      <footer className="page-width">
+        <span>ФСП / ОРЕНБУРГСКАЯ ОБЛАСТЬ</span>
+        <span>КОД · СПОРТ · СООБЩЕСТВО</span>
+      </footer>
+    </div>
   );
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <StrictMode><App /></StrictMode>,
 );

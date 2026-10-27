@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 .venv/
+*.egg-info/
+pip-build-env-*/
+pip-build-tracker-*/
 
 # Frontend
 node_modules/
