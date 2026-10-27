@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, Column, Date, Enum as SqlEnum, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -144,6 +144,7 @@ class Competition(Base):
     regulation_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     regulation_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    protocol_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[CompetitionStatus] = mapped_column(_enum(CompetitionStatus, "competition_status"), nullable=False)
 
     discipline: Mapped[Discipline] = relationship(lazy="selectin")

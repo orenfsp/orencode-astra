@@ -40,6 +40,7 @@ export type Competition = {
   calendar_plan: CalendarPlan;
   calendar_plan_number: string | null;
   regulation_filename: string | null;
+  protocol_published_at: string | null;
   status: CompetitionStatus;
   is_archived: boolean;
 };
@@ -91,3 +92,46 @@ export type MyProfile = {
   is_minor: boolean;
   pd_consent_at: string | null;
 };
+
+export type ApplicationStatus = "pending" | "approved" | "rejected" | "withdrawn";
+export type ResultStatus = "ok" | "dns" | "dsq";
+
+export type CompetitionBrief = Pick<Competition, "id" | "title" | "date" | "end_date" | "level" | "discipline" | "competition_type">;
+
+export type AthleteBrief = { id: number; full_name: string; birth_date: string | null; municipality: string | null; organization: string | null };
+
+export type ResultInfo = { score: string | null; result_status: ResultStatus; place: number | null };
+
+export type Application = {
+  id: number;
+  competition: CompetitionBrief;
+  athlete: AthleteBrief;
+  age_group: AgeGroup;
+  status: ApplicationStatus;
+  submitted_role: string;
+  moderator_comment: string | null;
+  created_at: string;
+  decided_at: string | null;
+  result: ResultInfo | null;
+};
+
+export type Eligibility = {
+  eligible: boolean;
+  reasons: string[];
+  age: number | null;
+  age_group: AgeGroup | null;
+  application_id: number | null;
+  application_status: ApplicationStatus | null;
+};
+
+export type ProtocolRow = { application_id: number; place: number | null; athlete: AthleteBrief; score: string | null; result_status: ResultStatus | null };
+
+export type Protocol = {
+  competition: CompetitionBrief;
+  location: string;
+  published_at: string | null;
+  is_complete: boolean;
+  groups: { age_group: AgeGroup; rows: ProtocolRow[] }[];
+};
+
+export type HistoryItem = { competition: CompetitionBrief; age_group: AgeGroup; place: number | null; score: string | null; result_status: ResultStatus; participants: number };

@@ -3,12 +3,14 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { Header } from "./app/Header";
 import { SessionProvider } from "./app/session";
+import { AdminCompetitionPage } from "./pages/admin/AdminCompetitionPage";
 import { AdminCompetitionsPage } from "./pages/admin/AdminCompetitionsPage";
 import { AdminReferencePage } from "./pages/admin/AdminReferencePage";
 import { CabinetPage } from "./pages/CabinetPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { CompetitionPage } from "./pages/CompetitionPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ProtocolPage } from "./pages/ProtocolPage";
 import { State } from "./shared/ui";
 import "./styles.css";
 
@@ -24,9 +26,11 @@ function App() {
         <Routes>
           <Route path="/" element={<CalendarPage />} />
           <Route path="/competitions/:id" element={<CompetitionPage />} />
+          <Route path="/competitions/:id/protocol" element={<ProtocolPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cabinet" element={<CabinetPage />} />
           <Route path="/admin/competitions" element={<AdminCompetitionsPage />} />
+          <Route path="/admin/competitions/:id" element={<AdminCompetitionPage />} />
           <Route path="/admin/reference" element={<AdminReferencePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

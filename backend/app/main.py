@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.applications import router as applications_router
 from app.auth_routes import router as auth_router
 from app.competitions import router as competitions_router
 from app.profile_routes import router as profile_router
@@ -13,6 +14,7 @@ app.include_router(auth_router)
 app.include_router(reference_router)
 app.include_router(profile_router)
 app.include_router(competitions_router)
+app.include_router(applications_router)
 
 CORS_ORIGINS = [
     origin.strip()

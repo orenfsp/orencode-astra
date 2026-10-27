@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useSession } from "../../app/session";
 import { api, errorText, json } from "../../shared/api";
 import { formatLabels, formatRange, keys, levelLabels, planLabels, statusLabels } from "../../shared/labels";
@@ -171,6 +172,7 @@ function AdminCompetitions({ reference }: { reference: Reference }) {
             </div>
             {!item.is_archived && (
               <div className="admin-actions">
+                <Link className="button button--small" to={`/admin/competitions/${item.id}`}>Заявки и протокол</Link>
                 <button type="button" className="button button--small button--ghost" onClick={() => { setEditing(item); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Изменить</button>
                 <select aria-label={`Этап: ${item.title}`} value={item.status} onChange={(event) => void action(`/competitions/${item.id}/status`, json("PATCH", { status: event.target.value }), "Этап обновлён")}>
                   {keys(statusLabels).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}

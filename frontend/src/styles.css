@@ -180,6 +180,39 @@ ol.ref-list { list-style: decimal inside; }
 
 .site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 24px 0 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 
+
+/* ---------- Заявки, результаты, протокол ---------- */
+.apply-card { margin-top: 24px; max-width: 720px; }
+.reason-list { margin: 0; padding-left: 20px; color: var(--warn); display: grid; gap: 6px; font-size: 14px; }
+.app-status { display: inline-block; font-size: 12px; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line); white-space: nowrap; }
+.app-status--pending { border-color: var(--warn); color: var(--warn); }
+.app-status--approved { border-color: var(--ok); color: var(--ok); }
+.app-status--rejected { border-color: var(--danger); color: var(--danger); }
+.app-status--withdrawn { color: var(--muted); }
+.chip-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; }
+.table-wrap:empty { display: none; }
+.protocol-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.protocol-table th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 12px 14px; background: var(--bg-raised); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.protocol-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.protocol-table tr:last-child td { border-bottom: 0; }
+.protocol-table .place { font-weight: 600; white-space: nowrap; }
+.protocol-table tr.is-podium .place { color: var(--accent-hover); }
+.protocol-table select { width: auto; padding: 6px 8px; font-size: 13px; }
+.score-input { width: 110px; padding: 6px 8px; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.protocol-group { margin-bottom: 24px; }
+.protocol-group h2 { font-size: 20px; margin-bottom: 12px; }
+.ref-list li > span:first-child { min-width: 0; }
+
+@media print {
+  :root { --bg: #fff; --bg-raised: #fff; --text: #000; --muted: #444; --line: #999; }
+  body { background: #fff; color: #000; }
+  .site-header, .site-footer, .no-print { display: none !important; }
+  .table-wrap { overflow: visible; border-color: #999; }
+  .protocol-table th, .protocol-table td { padding: 6px 8px; }
+}
+
 /* ---------- Адаптивность ---------- */
 @media (max-width: 1000px) {
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }

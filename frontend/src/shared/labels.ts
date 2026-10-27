@@ -1,5 +1,6 @@
 import type {
-  CalendarPlan, CompetitionFormat, CompetitionLevel, CompetitionStatus, Gender, OrganizationType, Role, TrainingStage,
+  ApplicationStatus, CalendarPlan, CompetitionFormat, CompetitionLevel, CompetitionStatus, Gender, OrganizationType, ResultStatus,
+  Role, TrainingStage,
 } from "./types";
 
 export const roleLabels: Record<Role, string> = {
@@ -67,4 +68,21 @@ export function formatDate(value: string | null | undefined): string {
 
 export function formatRange(start: string, end: string): string {
   return start === end ? formatDate(start) : `${formatDate(start)} — ${formatDate(end)}`;
+}
+
+export const applicationStatusLabels: Record<ApplicationStatus, string> = {
+  pending: "На модерации",
+  approved: "Одобрена",
+  rejected: "Отклонена",
+  withdrawn: "Отозвана",
+};
+
+export const resultStatusLabels: Record<ResultStatus, string> = {
+  ok: "Результат",
+  dns: "Не явился",
+  dsq: "Дисквалифицирован",
+};
+
+export function birthYear(value: string | null): string {
+  return value ? value.slice(0, 4) : "—";
 }

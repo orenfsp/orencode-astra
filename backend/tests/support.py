@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+import app.application_models  # noqa: F401 - registers application tables
 import app.profile_models  # noqa: F401 - registers profile tables
 from app.auth_models import Role
 from app.database import get_session

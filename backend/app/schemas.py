@@ -1,4 +1,4 @@
-from datetime import date as Date
+from datetime import date as Date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -144,5 +144,6 @@ class CompetitionRead(BaseModel):
     calendar_plan: CalendarPlan
     calendar_plan_number: str | None
     regulation_filename: str | None
+    protocol_published_at: datetime | None
     status: CompetitionStatus
     is_archived: bool

@@ -9,6 +9,7 @@ from app.database import DATABASE_URL
 from app.models import Base
 import app.auth_models  # noqa: F401 - registers auth tables in Base.metadata
 import app.profile_models  # noqa: F401 - registers profile tables in Base.metadata
+import app.application_models  # noqa: F401 - registers applications and results
 
 
 config = context.config

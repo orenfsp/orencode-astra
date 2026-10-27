@@ -3,8 +3,8 @@ import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, errorText, json } from "../shared/api";
-import { formatDate, genderLabels, keys, roleLabels, stageLabels } from "../shared/labels";
-import type { MyProfile, Role } from "../shared/types";
+import { applicationStatusLabels, formatDate, genderLabels, keys, levelLabels, resultStatusLabels, roleLabels, stageLabels } from "../shared/labels";
+import type { Application, HistoryItem, MyProfile, Role } from "../shared/types";
 import { FormError, GuestNotice, Notice, PageTitle, State } from "../shared/ui";
 
 const PUBLIC_ROLES: Role[] = ["athlete", "coach", "judge"];
@@ -202,6 +202,71 @@ function CoachForm({ data, onSaved }: { data: MyProfile; onSaved: (data: MyProfi
   );
 }
 
+function MyApplications() {
+  const [items, setItems] = useState<Application[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => { api<Application[]>("/me/applications").then(setItems).catch((reason) => setError(errorText(reason))); };
+  useEffect(load, []);
+
+  async function withdraw(item: Application) {
+    if (!window.confirm(`Отозвать заявку на «${item.competition.title}»?`)) return;
+    setError(null);
+    try { await api(`/applications/${item.id}/withdraw`, { method: "POST" }); load(); } catch (reason) { setError(errorText(reason)); }
+  }
+
+  return (
+    <section className="card">
+      <h2>Мои заявки</h2>
+      {items?.length === 0 && <p className="muted">Заявок пока нет. Выберите соревнование в <Link to="/">календаре</Link> — платформа сама покажет, проходите ли вы по возрасту и дисциплине.</p>}
+      <ul className="ref-list">
+        {items?.map((item) => (
+          <li key={item.id}>
+            <span>
+              <Link to={`/competitions/${item.competition.id}`}>{item.competition.title}</Link><br />
+              <small className="muted">{formatDate(item.competition.date)} · {item.age_group.name}</small>
+              {item.moderator_comment && <><br /><small className="muted">Комментарий федерации: {item.moderator_comment}</small></>}
+            </span>
+            <span className="row-actions">
+              <span className={`app-status app-status--${item.status}`}>{applicationStatusLabels[item.status]}</span>
+              {(item.status === "pending" || item.status === "approved") && !item.result && <button type="button" className="link-button" onClick={() => void withdraw(item)}>Отозвать</button>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <FormError error={error} />
+    </section>
+  );
+}
+
+function MyResults() {
+  const [items, setItems] = useState<HistoryItem[] | null>(null);
+  useEffect(() => { api<HistoryItem[]>("/me/results").then(setItems).catch(() => setItems([])); }, []);
+  return (
+    <section className="card">
+      <h2>История выступлений</h2>
+      {items?.length === 0 && <p className="muted">Результаты появятся здесь после публикации протокола соревнования.</p>}
+      {items && items.length > 0 && (
+        <div className="table-wrap">
+          <table className="protocol-table">
+            <thead><tr><th>Соревнование</th><th>Статус</th><th>Место</th><th>Баллы</th><th /></tr></thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.competition.id}>
+                  <td>{item.competition.title}<br /><small className="muted">{item.competition.discipline.name} · {formatDate(item.competition.date)} · {item.age_group.name}</small></td>
+                  <td>{levelLabels[item.competition.level]}</td>
+                  <td className="place">{item.place ? `${item.place} из ${item.participants}` : resultStatusLabels[item.result_status]}</td>
+                  <td>{item.score ?? "—"}</td>
+                  <td><Link to={`/competitions/${item.competition.id}/protocol`}>Протокол</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function CabinetPage() {
   const { user } = useSession();
   const [data, setData] = useState<MyProfile | null>(null);
@@ -235,6 +300,8 @@ export function CabinetPage() {
         <div className="stack">
           {error && <State code="ERR" title="Профиль не загрузился" text={error} />}
           {data && <ProfileForm key={`p-${data.profile?.last_name}`} data={data} onSaved={setData} />}
+          {user.active_role === "athlete" && <MyApplications />}
+          {user.active_role === "athlete" && <MyResults />}
           {data && user.active_role === "athlete" && <AthleteForm key={`a-${data.profile?.birth_date}`} data={data} onSaved={setData} />}
           {data && user.active_role === "coach" && <CoachForm data={data} onSaved={setData} />}
         </div>
