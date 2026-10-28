@@ -15,7 +15,8 @@ SESSION_COOKIE = "fsp_session"
 CSRF_COOKIE = "fsp_csrf"
 SESSION_TTL = timedelta(hours=12)
 PUBLIC_ROLES = {"athlete", "coach", "judge"}
-ALL_ROLES = PUBLIC_ROLES | {"federation_admin"}
+# Министерство спорта — только чтение отчётов, календаря и составов сборной; роль выдаёт федерация.
+ALL_ROLES = PUBLIC_ROLES | {"federation_admin", "ministry"}
 
 password_hasher = PasswordHasher(type=Type.ID)
 DUMMY_PASSWORD_HASH = password_hasher.hash("not-a-real-user-password")

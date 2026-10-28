@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { api, errorText, json } from "../../shared/api";
+import { api, errorText, fileUrl, json } from "../../shared/api";
 import { categoryLabels, formatDate, keys, requestKindLabels, requestStatusLabels, todayIso } from "../../shared/labels";
 import type { JudgeCategory, MyJudge, RequestKind } from "../../shared/types";
 import { FormError, Notice } from "../../shared/ui";
@@ -61,7 +61,7 @@ export function JudgePanel() {
         <ul className="ref-list">{upcoming.map((item) => <li key={item.id}><span>{item.competition.title}<br /><small className="muted">{formatDate(item.competition.date)}</small></span><span className="tag">{item.position.name}</span></li>)}</ul>
       </section>
       <section className="card">
-        <h2>Мои соревнования</h2>
+        <div className="card-heading"><h2>Мои соревнования</h2>{past.length > 0 && <a className="link-button" href={fileUrl("/me/judge/report.docx")}>Отчёт .docx</a>}</div>
         {past.length === 0 && <p className="muted">Здесь появятся соревнования, на которых вы работали.</p>}
         <ul className="ref-list">{past.map((item) => <li key={item.id}><span>{item.competition.title}<br /><small className="muted">{formatDate(item.competition.date)}</small></span><span className="tag">{item.position.name}</span></li>)}</ul>
       </section>

@@ -16,8 +16,12 @@ import { CabinetPage } from "./pages/CabinetPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { CompetitionPage } from "./pages/CompetitionPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MinistryPage } from "./pages/MinistryPage";
+import { NavigatorPage } from "./pages/NavigatorPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { ProtocolPage } from "./pages/ProtocolPage";
+import { VerifyPage } from "./pages/VerifyPage";
+import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
 import { State } from "./shared/ui";
 import "./styles.css";
 
@@ -35,6 +39,10 @@ function App() {
           <Route path="/competitions/:id" element={<CompetitionPage />} />
           <Route path="/competitions/:id/protocol" element={<ProtocolPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/start" element={<NavigatorPage />} />
+          <Route path="/verify/:code" element={<VerifyPage />} />
+          <Route path="/ministry" element={<MinistryPage />} />
+          <Route path="/admin/analytics" element={<AnalyticsPage />} />
           <Route path="/cabinet" element={<CabinetPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />

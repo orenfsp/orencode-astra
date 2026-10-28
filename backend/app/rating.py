@@ -30,6 +30,7 @@ from app.schemas import AgeGroupRead, DisciplineRead, RefItem
 router = APIRouter(prefix="/api/v1", tags=["rating"])
 admin_read = require_roles("federation_admin")
 admin_write = require_roles("federation_admin", csrf=True)
+teams_read = require_roles("federation_admin", "ministry")
 TWO_PLACES = Decimal("0.01")
 
 
@@ -402,7 +403,7 @@ async def get_team(db: AsyncSession, team_id: int) -> Team:
 
 
 @router.get("/teams", response_model=list[TeamRead])
-async def list_teams(_admin: User = Depends(admin_read), db: AsyncSession = Depends(get_session)) -> list[TeamRead]:
+async def list_teams(_reader: User = Depends(teams_read), db: AsyncSession = Depends(get_session)) -> list[TeamRead]:
     return [await read_team(db, team) for team in await db.scalars(select(Team).order_by(Team.created_at.desc()))]
 
 
@@ -433,7 +434,7 @@ async def create_team(payload: TeamWrite, _admin: User = Depends(admin_write), d
 
 
 @router.get("/teams/{team_id}", response_model=TeamRead)
-async def team_detail(team_id: Annotated[int, Path(gt=0)], _admin: User = Depends(admin_read), db: AsyncSession = Depends(get_session)) -> TeamRead:
+async def team_detail(team_id: Annotated[int, Path(gt=0)], _reader: User = Depends(teams_read), db: AsyncSession = Depends(get_session)) -> TeamRead:
     return await read_team(db, await get_team(db, team_id))
 
 

@@ -65,7 +65,7 @@ function Registry() {
   );
 }
 
-function HeadcountView() {
+export function HeadcountView() {
   const year = new Date().getFullYear();
   const [period, setPeriod] = useState({ from_year: year - 2, to_year: year });
   const [report, setReport] = useState<Headcount | null>(null);

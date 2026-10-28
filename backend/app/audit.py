@@ -22,6 +22,7 @@ from app.auth_models import User
 from app.auth_routes import require_roles
 from app.auth_security import utcnow
 from app.coaching_models import CoachLink
+from app.extras_models import Certificate, IndicatorDocument
 from app.database import get_session
 from app.models import AgeGroup, Competition, CompetitionType, Organization
 from app.people import names
@@ -39,6 +40,7 @@ ENTITY_NAMES: dict[type, str] = {
     JudgeAssignment: "Назначение судьи", RankRequest: "Заявка на разряд", AthleteRank: "Спортивный разряд", RankNorm: "Норма ЕВСК",
     RatingPoints: "Баллы рейтинга", RatingSettings: "Настройки рейтинга", Sanction: "Дисквалификация / отстранение", Team: "Сборная",
     Organization: "Организация", CompetitionType: "Тип соревнования", AgeGroup: "Возрастная группа",
+    Certificate: "Справка об участии", IndicatorDocument: "Документ к показателю развития",
 }
 ACTION_LABELS = {"create": "создание", "update": "изменение", "delete": "удаление"}
 # Служебные и секретные поля в журнал не попадают.

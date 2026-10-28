@@ -74,6 +74,7 @@ function JudgesTab({ competition }: { competition: Competition }) {
         <button className="button button--small">Назначить</button>
       </form>
       {judges.length === 0 && <p className="muted">В реестре нет судей: пользователь добавляет себе роль судьи в кабинете.</p>}
+      {panel.length > 0 && <p><a className="button button--small button--ghost" href={fileUrl(`/competitions/${competition.id}/judges.docx`)}>Справка о составе коллегии .docx</a></p>}
       <FormError error={error} />
     </>
   );

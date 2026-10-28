@@ -25,8 +25,9 @@ INVALID_CREDENTIALS = "Неверный email или пароль"
 def _default_active_role(user: User) -> str:
     """Prefer the privileged role only when it is actually assigned."""
     roles = {role.name for role in user.roles}
-    if "federation_admin" in roles:
-        return "federation_admin"
+    for privileged in ("federation_admin", "ministry"):
+        if privileged in roles:
+            return privileged
     return sorted(roles)[0]
 
 

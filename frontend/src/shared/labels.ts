@@ -8,6 +8,7 @@ export const roleLabels: Record<Role, string> = {
   coach: "Тренер",
   judge: "Судья",
   federation_admin: "Федерация",
+  ministry: "Министерство",
 };
 
 export const statusLabels: Record<CompetitionStatus, string> = {

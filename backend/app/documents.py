@@ -237,7 +237,7 @@ TEAM_WIDTHS = [0.8, 5.5, 1.8, 2.2, 5, 3.5, 1.8, 1.6, 2]
 
 
 @router.get("/teams/{team_id}/list.docx")
-async def team_list(team_id: Annotated[int, Path(gt=0)], _admin: User = Depends(require_roles("federation_admin")), db: AsyncSession = Depends(get_session)) -> Response:
+async def team_list(team_id: Annotated[int, Path(gt=0)], _reader: User = Depends(require_roles("federation_admin", "ministry")), db: AsyncSession = Depends(get_session)) -> Response:
     team = await read_team(db, await get_team(db, team_id))
     document = _document(landscape=True)
     _centered(document, FEDERATION, size=11)
@@ -250,7 +250,7 @@ async def team_list(team_id: Annotated[int, Path(gt=0)], _admin: User = Depends(
 
 
 @router.get("/teams/{team_id}/order.docx")
-async def team_order(team_id: Annotated[int, Path(gt=0)], _admin: User = Depends(require_roles("federation_admin")), db: AsyncSession = Depends(get_session)) -> Response:
+async def team_order(team_id: Annotated[int, Path(gt=0)], _reader: User = Depends(require_roles("federation_admin", "ministry")), db: AsyncSession = Depends(get_session)) -> Response:
     team = await read_team(db, await get_team(db, team_id))
     document = _document()
     _centered(document, FEDERATION, bold=True, size=12)

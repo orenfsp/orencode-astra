@@ -92,7 +92,7 @@ async def load_demo() -> str:
         await seed_rating(db)
 
         roles = {item.name: item for item in await db.scalars(select(Role))}
-        for name in ("athlete", "coach", "judge", "federation_admin"):
+        for name in ("athlete", "coach", "judge", "federation_admin", "ministry"):
             if name not in roles:
                 roles[name] = Role(name=name)
                 db.add(roles[name])
@@ -118,6 +118,7 @@ async def load_demo() -> str:
 
         # ---------- федерация, тренеры, судьи ----------
         federation = account(MARKER, ["federation_admin"], "Федоров", "Олег", "Викторович", date(1984, 6, 2), Gender.MALE, municipalities["г. Оренбург"], date(2024, 1, 10))
+        ministry = account(f"ministry@{DOMAIN}", ["ministry"], "Министерская", "Валентина", "Петровна", date(1979, 3, 12), Gender.FEMALE, municipalities["г. Оренбург"], date(2024, 3, 1))
         coaches: dict[str, User] = {}
         coach_specs = [
             ("algorithmic", "coach.algo", "Ермаков", "Павел", "Андреевич", False), ("product", "coach.product", "Нестерова", "Ирина", "Олеговна", True),
@@ -178,7 +179,7 @@ async def load_demo() -> str:
             user.demo_athlete = profile
             athletes.append((user, profile, birth_year))
         await db.flush()
-        for user in [federation, multi, *coaches.values(), *judges, *(item[0] for item in athletes)]:
+        for user in [federation, ministry, multi, *coaches.values(), *judges, *(item[0] for item in athletes)]:
             if getattr(user, "demo_profile", None) is not None and user.demo_profile.user_id is None:
                 user.demo_profile.user_id = user.id
                 db.add(user.demo_profile)

@@ -263,6 +263,24 @@ details summary { cursor: pointer; }
 .audit-changes { font-size: 13px; }
 .audit-changes td { word-break: break-word; }
 
+/* ---------- Шаг 6: навигатор, справки, аналитика ---------- */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.steps li { display: flex; gap: 14px; padding: 18px; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); }
+.step-number { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 600; }
+.steps p { margin-top: 6px; font-size: 14px; line-height: 1.5; }
+.glossary { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 0 0 16px; }
+.glossary div { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-raised); }
+.glossary dt { font-weight: 600; margin-bottom: 6px; }
+.glossary dd { margin: 0; color: #cfcfd4; font-size: 14px; line-height: 1.55; }
+.verify-card { margin-top: 12px; }
+.verify-ok { color: var(--ok); font-size: 18px; font-weight: 600; }
+.verify-grid { grid-template-columns: 1fr; margin: 16px 0; }
+.indicator-meta { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.row-actions.start { justify-content: flex-start; }
+.stat-grid.compact { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.stat-grid.compact .stat strong { font-size: 24px; }
+.spaced { margin-top: 16px; }
+
 /* ---------- Адаптивность ---------- */
 @media (max-width: 1000px) {
   .filters, .filters--rating, .filters--registry { grid-template-columns: repeat(2, minmax(0, 1fr)); }

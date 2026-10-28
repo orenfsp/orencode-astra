@@ -1,4 +1,4 @@
-export type Role = "athlete" | "coach" | "judge" | "federation_admin";
+export type Role = "athlete" | "coach" | "judge" | "federation_admin" | "ministry";
 
 export type User = { id: number; email: string; roles: Role[]; active_role: Role; full_name: string | null };
 
@@ -272,3 +272,46 @@ export type RegistryRow = AthleteBrief & {
 };
 
 export type Headcount = { years: number[]; total: number[]; sections: { key: string; title: string; rows: { name: string; counts: number[] }[] }[]; note: string };
+
+export type Certificate = { id: number; number: string; code: string; verify_url: string; issued_at: string; purpose: string | null; competition: CompetitionBrief; place: number | null };
+
+export type Verification = {
+  valid: boolean;
+  number: string;
+  issued_at: string;
+  athlete: string;
+  birth_year: number | null;
+  competition: CompetitionBrief;
+  location: string;
+  age_group: string;
+  place: number | null;
+  participants: number;
+  result: string;
+  protocol_url: string;
+};
+
+export type IndicatorDocument = { id: number; indicator: string; year: number; filename: string; uploaded_at: string };
+
+export type Development = {
+  year: number;
+  indicators: { key: string; title: string; source: string; documents: IndicatorDocument[] }[];
+  headcount_years: number[];
+  headcount: number[];
+  organizations: { name: string; org_type: OrganizationType; municipality: string | null; athletes: number; disciplines: string[] }[];
+  competitions: { id: number; title: string; date: string; level: CompetitionLevel; discipline: string; calendar_plan: CalendarPlan; calendar_plan_number: string | null; participants: number; protocol_published: boolean }[];
+  competitions_in_plans: number;
+};
+
+export type EffectivenessLine = {
+  name: string;
+  athletes: number;
+  starts: number;
+  podiums: number;
+  wins: number;
+  points: number;
+  ranks: number;
+  points_per_athlete: number;
+  details: { date: string; competition: string; athlete: string; place: number | null; points: number }[];
+};
+
+export type Effectiveness = { season: number; coaches: EffectivenessLine[]; organizations: EffectivenessLine[]; method: string };

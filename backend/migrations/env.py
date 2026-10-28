@@ -15,6 +15,7 @@ import app.notification_models  # noqa: F401 - registers notifications
 import app.qualification_models  # noqa: F401 - registers judges and ranks
 import app.rating_models  # noqa: F401 - registers rating, sanctions and teams
 import app.audit_models  # noqa: F401 - registers the audit log
+import app.extras_models  # noqa: F401 - registers certificates and indicator documents
 
 
 config = context.config

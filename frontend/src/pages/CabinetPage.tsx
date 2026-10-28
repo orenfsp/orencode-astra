@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, errorText, fileUrl, json } from "../shared/api";
 import { applicationStatusLabels, formatDate, genderLabels, keys, levelLabels, resultStatusLabels, roleLabels, stageLabels } from "../shared/labels";
-import type { Application, HistoryItem, MyProfile, Role } from "../shared/types";
+import type { Application, Certificate, HistoryItem, MyProfile, Role } from "../shared/types";
 import { FormError, GuestNotice, Notice, PageTitle, State } from "../shared/ui";
 import { DeadlinesCard } from "../shared/widgets";
 import { MyCoaches, MyRankCard } from "./cabinet/AthletePanels";
@@ -246,7 +246,21 @@ function MyApplications() {
 
 function MyResults() {
   const [items, setItems] = useState<HistoryItem[] | null>(null);
-  useEffect(() => { api<HistoryItem[]>("/me/results").then(setItems).catch(() => setItems([])); }, []);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const loadCertificates = () => { api<Certificate[]>("/me/certificates").then(setCertificates).catch(() => setCertificates([])); };
+  useEffect(() => { api<HistoryItem[]>("/me/results").then(setItems).catch(() => setItems([])); loadCertificates(); }, []);
+
+  async function issue(item: HistoryItem) {
+    const purpose = window.prompt("Для чего справка? (например, для поступления, для стипендии) — можно оставить пустым", "") ;
+    if (purpose === null) return;
+    setError(null);
+    try {
+      const certificate = await api<Certificate>("/me/certificates", json("POST", { application_id: item.application_id, purpose: purpose || null }));
+      loadCertificates();
+      window.location.href = fileUrl(`/certificates/${certificate.id}.docx`);
+    } catch (reason) { setError(errorText(reason)); }
+  }
   return (
     <section className="card">
       <h2>История выступлений</h2>
@@ -263,12 +277,26 @@ function MyResults() {
                   <td>{levelLabels[item.competition.level]}</td>
                   <td className="place">{item.place ? `${item.place} из ${item.participants}` : resultStatusLabels[item.result_status]}</td>
                   <td>{item.score ?? "—"}</td>
-                  <td><Link to={`/competitions/${item.competition.id}/protocol`}>Протокол</Link></td>
+                  <td className="row-actions start"><Link to={`/competitions/${item.competition.id}/protocol`}>Протокол</Link>{item.result_status === "ok" && <button type="button" className="link-button" onClick={() => void issue(item)}>Справка с QR</button>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      <FormError error={error} />
+      {certificates.length > 0 && (
+        <details>
+          <summary className="muted">Выданные справки ({certificates.length})</summary>
+          <ul className="ref-list">
+            {certificates.map((item) => (
+              <li key={item.id}>
+                <span>№ {item.number} · {item.competition.title}<br /><small className="muted">{formatDate(item.issued_at)}{item.purpose ? ` · ${item.purpose}` : ""}</small></span>
+                <span className="row-actions"><a className="link-button" href={fileUrl(`/certificates/${item.id}.docx`)}>.docx</a><Link className="link-button" to={`/verify/${item.code}`}>Проверка</Link></span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );

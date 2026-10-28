@@ -16,6 +16,7 @@ import app.profile_models  # noqa: F401 - registers profile tables
 import app.qualification_models  # noqa: F401 - registers judges and ranks
 import app.rating_models  # noqa: F401 - registers rating, sanctions and teams
 import app.audit_models  # noqa: F401 - registers the audit log
+import app.extras_models  # noqa: F401 - registers certificates and indicator documents
 from app.auth_models import Role
 from app.database import get_session
 from app.main import app
@@ -39,7 +40,7 @@ class ApiDatabase:
             async with self.engine.begin() as connection:
                 await connection.run_sync(Base.metadata.create_all)
             async with self.session_factory() as session:
-                session.add_all([Role(name=name) for name in ("athlete", "coach", "judge", "federation_admin")])
+                session.add_all([Role(name=name) for name in ("athlete", "coach", "judge", "federation_admin", "ministry")])
                 await seed_reference(session)
                 await seed_rank_norms(session)
                 await seed_rating(session)

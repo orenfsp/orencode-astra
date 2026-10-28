@@ -31,6 +31,8 @@ from app.schemas import DisciplineRead
 
 router = APIRouter(prefix="/api/v1", tags=["reports"])
 admin_read = require_roles("federation_admin")
+# Отчёты о численности доступны и министерству (только чтение).
+reports_read = require_roles("federation_admin", "ministry")
 
 STAGE_LABELS = {
     TrainingStage.INITIAL: "Начальная подготовка", TrainingStage.TRAINING: "Учебно-тренировочный этап",
@@ -213,7 +215,7 @@ def _years(from_year: int | None, to_year: int | None) -> list[int]:
 async def headcount(
     from_year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
     to_year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
-    _admin: User = Depends(admin_read),
+    _reader: User = Depends(reports_read),
     db: AsyncSession = Depends(get_session),
 ) -> Headcount:
     groups = list(await db.scalars(select(AgeGroup).order_by(AgeGroup.sort_order, AgeGroup.id)))
@@ -293,7 +295,7 @@ def attachment(content: bytes, media_type: str, filename: str) -> Response:
 async def headcount_xlsx(
     from_year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
     to_year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
-    _admin: User = Depends(admin_read),
+    _reader: User = Depends(reports_read),
     db: AsyncSession = Depends(get_session),
 ) -> Response:
     groups = list(await db.scalars(select(AgeGroup).order_by(AgeGroup.sort_order, AgeGroup.id)))

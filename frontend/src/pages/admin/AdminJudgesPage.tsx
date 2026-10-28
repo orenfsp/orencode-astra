@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, errorText } from "../../shared/api";
+import { api, errorText, fileUrl } from "../../shared/api";
 import { categoryLabels, categoryValidityYears, formatDate, requestKindLabels } from "../../shared/labels";
 import type { JudgeRequest, JudgeRow } from "../../shared/types";
 import { PageTitle, State } from "../../shared/ui";
@@ -44,7 +44,7 @@ function JudgesView() {
         <div className="table-wrap">
           {judges.length > 0 && (
             <table className="protocol-table">
-              <thead><tr><th>Судья</th><th>Категория</th><th>Срок действия</th><th>Приказ</th><th>Назначений</th></tr></thead>
+              <thead><tr><th>Судья</th><th>Категория</th><th>Срок действия</th><th>Приказ</th><th>Назначений</th><th /></tr></thead>
               <tbody>
                 {judges.map((item) => (
                   <tr key={item.judge_id}>
@@ -53,6 +53,7 @@ function JudgesView() {
                     <td><ValidityBadge validity={item.info.validity} until={item.info.category_expires_on} /></td>
                     <td>{item.info.order_ref ?? "—"}</td>
                     <td>{item.assignments}</td>
+                    <td><a className="link-button" href={fileUrl(`/judges/${item.judge_id}/report.docx`)}>Отчёт .docx</a></td>
                   </tr>
                 ))}
               </tbody>

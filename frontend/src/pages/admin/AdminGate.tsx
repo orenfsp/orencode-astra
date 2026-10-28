@@ -3,23 +3,24 @@ import type { ReactNode } from "react";
 import { useSession } from "../../app/session";
 import { errorText } from "../../shared/api";
 import { roleLabels } from "../../shared/labels";
+import type { Role } from "../../shared/types";
 import { FormError, GuestNotice, State } from "../../shared/ui";
 
-/** Показывает содержимое только при активной роли федерации; иначе — понятная подсказка. */
-export function AdminGate({ children }: { children: ReactNode }) {
+/** Показывает содержимое только при подходящей активной роли (по умолчанию — федерация); иначе — понятная подсказка. */
+export function AdminGate({ children, roles = ["federation_admin"] }: { children: ReactNode; roles?: Role[] }) {
   const { user, switchRole } = useSession();
   const [error, setError] = useState<string | null>(null);
 
   if (user === undefined) return <State code="…" title="Проверяем доступ" text="Сверяем сессию и роль." />;
-  if (user === null) return <GuestNotice text="Раздел доступен сотрудникам федерации." />;
-  if (user.active_role === "federation_admin") return <>{children}</>;
+  if (user === null) return <GuestNotice text={roles.includes("ministry") ? "Раздел доступен федерации и министерству спорта." : "Раздел доступен сотрудникам федерации."} />;
+  if (roles.includes(user.active_role)) return <>{children}</>;
 
-  const canSwitch = user.roles.includes("federation_admin");
+  const target = roles.find((role) => user.roles.includes(role));
   return (
     <>
-      <State code="ROLE" title={canSwitch ? "Переключите кабинет" : "Нет доступа"}
-        text={`Сейчас активен кабинет «${roleLabels[user.active_role]}». ${canSwitch ? "Роль федерации уже есть в аккаунте." : "Раздел доступен только сотрудникам федерации."}`}
-        action={canSwitch ? <button type="button" className="button" onClick={() => switchRole("federation_admin").catch((reason) => setError(errorText(reason)))}>Открыть кабинет федерации</button> : undefined} />
+      <State code="ROLE" title={target ? "Переключите кабинет" : "Нет доступа"}
+        text={`Сейчас активен кабинет «${roleLabels[user.active_role]}». ${target ? `Роль «${roleLabels[target]}» уже есть в аккаунте.` : "У аккаунта нет доступа к этому разделу."}`}
+        action={target ? <button type="button" className="button" onClick={() => switchRole(target).catch((reason) => setError(errorText(reason)))}>Открыть кабинет «{roleLabels[target]}»</button> : undefined} />
       <FormError error={error} />
     </>
   );
