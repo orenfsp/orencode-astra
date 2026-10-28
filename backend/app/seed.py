@@ -74,6 +74,8 @@ async def seed() -> None:
         existing_titles = set(await session.scalars(select(Competition.title)))
         for (title, code, type_name, level, group_indexes, start, end, reg_start, reg_end, location, event_format,
              plan, plan_number, status, description) in COMPETITIONS:
+            # Протокол по задачам: сколько задач предлагается; продуктовое программирование оценивают судьи.
+            task_count = {"algorithmic": 12, "security": 10, "ai": 8, "robotics": 6, "uav": 6}.get(code)
             if title in existing_titles:
                 continue
             session.add(Competition(
@@ -81,7 +83,7 @@ async def seed() -> None:
                 age_groups=[age_groups[index] for index in group_indexes if index < len(age_groups)],
                 date=start, end_date=end, registration_start=reg_start, registration_end=reg_end,
                 location=location, format=event_format, calendar_plan=plan, calendar_plan_number=plan_number,
-                status=status, description=description, is_archived=False,
+                status=status, description=description, is_archived=False, task_count=task_count,
             ))
         await session.commit()
 

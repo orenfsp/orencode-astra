@@ -22,6 +22,12 @@ def _enum(enum_class: type[Enum], name: str) -> SqlEnum:
     )
 
 
+# Формы протоколов из Приложения № 5 к Правилам вида спорта «спортивное программирование»
+# (приказ Минспорта России от 11.08.2023 № 584): по задачам и по оценкам судей (продуктовое).
+PROTOCOL_FORM_PRODUCT = "product"
+PROTOCOL_FORM_TASKS = "tasks"
+
+
 class CompetitionStatus(str, Enum):
     DRAFT = "draft"
     REGISTRATION_OPEN = "registration_open"
@@ -145,8 +151,15 @@ class Competition(Base):
     regulation_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     protocol_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Сколько задач предложено к решению (протокол по задачам); для продуктового программирования не используется.
+    task_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[CompetitionStatus] = mapped_column(_enum(CompetitionStatus, "competition_status"), nullable=False)
 
     discipline: Mapped[Discipline] = relationship(lazy="selectin")
     competition_type: Mapped[CompetitionType] = relationship(lazy="selectin")
     age_groups: Mapped[list[AgeGroup]] = relationship(secondary=competition_age_groups, lazy="selectin", order_by=AgeGroup.sort_order)
+
+    @property
+    def protocol_form(self) -> str:
+        """Форма протокола по дисциплине: продуктовое — оценки судей, остальные — решённые задачи."""
+        return PROTOCOL_FORM_PRODUCT if self.discipline.code == "product" else PROTOCOL_FORM_TASKS

@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application_models import Application, Result
 from app.auth_models import AuthSession, User
 from app.auth_routes import is_active_admin, optional_auth_session, require_roles
 from app.database import get_session
@@ -68,8 +69,11 @@ def ensure_editable(competition: Competition) -> None:
 
 async def resolve_references(session: AsyncSession, fields: CompetitionFields) -> list[AgeGroup]:
     """Check foreign keys up front so the API answers 422 instead of a database error."""
-    if await session.get(Discipline, fields.discipline_id) is None:
+    discipline = await session.get(Discipline, fields.discipline_id)
+    if discipline is None:
         raise HTTPException(status_code=422, detail="Неизвестная дисциплина")
+    if discipline.code == "product":
+        fields.task_count = None  # в продуктовом программировании протокол ведётся по оценкам судей, а не по задачам
     competition_type = await session.get(CompetitionType, fields.competition_type_id)
     if competition_type is None:
         raise HTTPException(status_code=422, detail="Неизвестный тип соревнования")
@@ -188,6 +192,13 @@ async def update_competition(
     current["age_group_ids"] = [group.id for group in competition.age_groups]
     candidate = validate_fields({**current, **changes})
     age_groups = await resolve_references(session, candidate)
+    if candidate.task_count != competition.task_count or candidate.discipline_id != competition.discipline_id:
+        marked = await session.scalar(
+            select(Result.id).join(Application, Application.id == Result.application_id)
+            .where(Application.competition_id == competition.id, Result.task_marks.is_not(None) | Result.judge_scores.is_not(None)).limit(1)
+        )
+        if marked is not None:
+            raise HTTPException(status_code=409, detail="По соревнованию уже внесены результаты по задачам или оценки судей: дисциплину и число задач менять нельзя")
 
     for field, value in candidate.model_dump(exclude={"age_group_ids", "status"}).items():
         setattr(competition, field, value)

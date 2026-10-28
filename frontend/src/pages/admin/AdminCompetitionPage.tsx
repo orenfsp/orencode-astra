@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useSession } from "../../app/session";
 import { api, errorText, fileUrl, json } from "../../shared/api";
 import { applicationStatusLabels, birthYear, categoryLabels, formatDate, formatRange, keys, resultStatusLabels } from "../../shared/labels";
-import type { Application, ApplicationStatus, Competition, JudgeAssignment, JudgeRow, Protocol, ResultStatus } from "../../shared/types";
+import type { Application, ApplicationStatus, Competition, JudgeAssignment, JudgeRow, Protocol, ProtocolRow, ResultStatus } from "../../shared/types";
 import { FormError, Notice, PageTitle, State, StatusBadge } from "../../shared/ui";
 import { ValidityBadge } from "../../shared/widgets";
 import { ProtocolTable } from "../ProtocolPage";
@@ -79,8 +79,6 @@ function JudgesTab({ competition }: { competition: Competition }) {
     </>
   );
 }
-type Draft = { score: string; result_status: ResultStatus };
-
 function Applications({ items, reload }: { items: Application[]; reload: () => void }) {
   const [filter, setFilter] = useState<ApplicationStatus | "">("pending");
   const [error, setError] = useState<string | null>(null);
@@ -136,23 +134,85 @@ function Applications({ items, reload }: { items: Application[]; reload: () => v
   );
 }
 
+type JudgeDraft = { judge: string; scores: string[] };
+type Draft = { score: string; result_status: ResultStatus; marks: string[]; penalty: string; judges: JudgeDraft[] };
+
+const JUDGES_PER_TEAM = 3;
+const MARK_PATTERN = /^(\+\d{0,2}|-\d{1,2}|)$/;
+
+const number = (value: string) => Number(value.replace(",", "."));
+
+function initialDraft(row: ProtocolRow, taskCount: number, panel: string[]): Draft {
+  const judges = row.judge_scores?.map((item) => ({ judge: item.judge, scores: [...item.scores] }))
+    ?? Array.from({ length: JUDGES_PER_TEAM }, (_, index) => ({ judge: panel[index] ?? `Судья ${index + 1}`, scores: ["", "", "", "", ""] }));
+  return {
+    score: row.score ?? "",
+    result_status: row.result_status ?? "ok",
+    marks: Array.from({ length: taskCount }, (_, index) => row.task_marks?.[index] ?? ""),
+    penalty: row.penalty_minutes === null ? "" : String(row.penalty_minutes),
+    judges,
+  };
+}
+
+/** Тело запроса для одного участника по форме протокола; null — участник ещё не заполнен; строка — ошибка. */
+function payloadFor(applicationId: number, draft: Draft, mode: "tasks" | "product" | "score"): object | string | null {
+  if (draft.result_status !== "ok") return { application_id: applicationId, result_status: draft.result_status };
+  if (mode === "tasks") {
+    if (draft.marks.every((mark) => mark.trim() === "") && draft.penalty.trim() === "") return null;
+    const bad = draft.marks.find((mark) => !MARK_PATTERN.test(mark.trim().replace("−", "-")));
+    if (bad !== undefined) return `Непонятная отметка «${bad}»: используйте «+», «+2», «-1» или оставьте пустой`;
+    return { application_id: applicationId, result_status: "ok", task_marks: draft.marks.map((mark) => mark.trim()), penalty_minutes: draft.penalty.trim() ? Math.round(number(draft.penalty)) : 0 };
+  }
+  if (mode === "product") {
+    const filled = draft.judges.filter((judge) => judge.scores.some((score) => score.trim() !== ""));
+    if (filled.length === 0) return null;
+    if (filled.some((judge) => judge.scores.some((score) => score.trim() === "") || !judge.judge.trim())) return "У каждого судьи нужны ФИО и оценки по всем пяти критериям";
+    return { application_id: applicationId, result_status: "ok", judge_scores: filled.map((judge) => ({ judge: judge.judge.trim(), scores: judge.scores.map(number) })) };
+  }
+  if (draft.score.trim() === "") return null;
+  return { application_id: applicationId, result_status: "ok", score: draft.score.replace(",", ".") };
+}
+
 function Results({ competition, protocol, onSaved }: { competition: Competition; protocol: Protocol; onSaved: (protocol: Protocol) => void }) {
   const rows = useMemo(() => protocol.groups.flatMap((group) => group.rows.map((row) => ({ ...row, group: group.age_group.name }))), [protocol]);
-  const [drafts, setDrafts] = useState<Record<number, Draft>>(() => Object.fromEntries(rows.map((row) => [row.application_id, { score: row.score ?? "", result_status: row.result_status ?? "ok" }])));
+  const taskCount = competition.task_count ?? 0;
+  const mode = competition.protocol_form === "product" ? "product" : taskCount > 0 ? "tasks" : "score";
+  const [panel, setPanel] = useState<string[]>([]);
+  const [drafts, setDrafts] = useState<Record<number, Draft>>(() => Object.fromEntries(rows.map((row) => [row.application_id, initialDraft(row, taskCount, [])])));
+  const [open, setOpen] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const locked = Boolean(protocol.published_at);
 
+  // Судьи коллегии (кроме секретарей) подставляются в оценочные листы продуктового программирования.
+  useEffect(() => {
+    if (mode !== "product") return;
+    api<JudgeAssignment[]>(`/competitions/${competition.id}/judges`).then((items) => {
+      const names = items.filter((item) => !item.position.name.toLowerCase().includes("секретар")).map((item) => item.judge_name);
+      setPanel(names);
+      setDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, {
+        ...draft,
+        judges: draft.judges.map((judge, index) => (/^Судья \d$/.test(judge.judge) && names[index] ? { ...judge, judge: names[index] } : judge)),
+      }])));
+    }).catch(() => setPanel([]));
+  }, [competition.id, mode]);
+
   if (rows.length === 0) return <State code="00" title="Нет допущенных участников" text="Одобрите заявки — участники появятся здесь автоматически." />;
 
   const set = (id: number, patch: Partial<Draft>) => setDrafts({ ...drafts, [id]: { ...drafts[id], ...patch } });
+  const setMark = (id: number, index: number, value: string) => set(id, { marks: drafts[id].marks.map((mark, position) => (position === index ? value : mark)) });
+  const setJudge = (id: number, index: number, patch: Partial<JudgeDraft>) => set(id, { judges: drafts[id].judges.map((judge, position) => (position === index ? { ...judge, ...patch } : judge)) });
+  const setJudgeScore = (id: number, index: number, column: number, value: string) =>
+    setJudge(id, index, { scores: drafts[id].judges[index].scores.map((score, position) => (position === column ? value : score)) });
 
   async function save() {
     setError(null); setNotice(null);
-    const results = rows
-      .map((row) => ({ application_id: row.application_id, ...drafts[row.application_id] }))
-      .filter((item) => item.result_status !== "ok" || item.score.trim() !== "")
-      .map((item) => ({ application_id: item.application_id, result_status: item.result_status, score: item.result_status === "ok" ? item.score.replace(",", ".") : null }));
+    const results = [];
+    for (const row of rows) {
+      const item = payloadFor(row.application_id, drafts[row.application_id], mode);
+      if (typeof item === "string") { setError(`${row.athlete.full_name}: ${item}`); return; }
+      if (item) results.push(item);
+    }
     if (results.length === 0) { setError("Введите хотя бы один результат"); return; }
     try {
       onSaved(await api<Protocol>(`/competitions/${competition.id}/results`, json("PUT", { results })));
@@ -160,16 +220,34 @@ function Results({ competition, protocol, onSaved }: { competition: Competition;
     } catch (reason) { setError(errorText(reason)); }
   }
 
+  const solved = (draft: Draft) => draft.marks.filter((mark) => mark.trim().startsWith("+")).length;
+  const judgeTotal = (judge: JudgeDraft) => judge.scores.reduce((sum, score) => sum + (score.trim() ? number(score) || 0 : 0), 0);
+  const average = (draft: Draft) => {
+    const filled = draft.judges.filter((judge) => judge.scores.some((score) => score.trim() !== ""));
+    return filled.length ? (filled.reduce((sum, judge) => sum + judgeTotal(judge), 0) / filled.length).toFixed(2) : "—";
+  };
+
   return (
     <>
       {locked && <State code="LOCK" title="Протокол опубликован" text="Чтобы исправить результаты, снимите публикацию на вкладке «Протокол»." />}
+      {mode === "tasks" && <p className="muted">Протокол по задачам ({taskCount}): «+» — решена с первой попытки, «+2» — решена после двух неудачных, «-1» — не решена, пусто — не сдавалась. Места: больше решённых задач, при равенстве — меньше время.</p>}
+      {mode === "score" && <p className="muted">Укажите в карточке соревнования число задач, чтобы вести протокол по образцу Правил вида спорта; пока результат вносится итоговыми баллами.</p>}
+      {mode === "product" && <p className="muted">Оценочный лист продуктового программирования: каждый судья ставит баллы по пяти критериям, итог команды — среднее судейских итогов. Нажмите «Оценки», чтобы открыть лист команды.</p>}
       <div className="table-wrap">
         <table className="protocol-table">
-          <thead><tr><th>Место</th><th>Спортсмен</th><th>Группа</th><th>Итог</th><th>Баллы</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Место</th><th>Спортсмен</th><th>Группа</th><th>Итог</th>
+              {mode === "tasks" && <>{drafts[rows[0].application_id].marks.map((_, index) => <th key={index} className="center">{index + 1}</th>)}<th>Решено</th><th>Время, мин</th></>}
+              {mode === "product" && <><th>Средний итог</th><th /></>}
+              {mode === "score" && <th>Баллы</th>}
+            </tr>
+          </thead>
           <tbody>
             {rows.map((row) => {
               const draft = drafts[row.application_id];
-              return (
+              const disabled = locked || draft.result_status !== "ok";
+              return [
                 <tr key={row.application_id}>
                   <td className="place">{row.place ?? "—"}</td>
                   <td>{row.athlete.full_name}</td>
@@ -179,17 +257,56 @@ function Results({ competition, protocol, onSaved }: { competition: Competition;
                       {keys(resultStatusLabels).map((status) => <option key={status} value={status}>{resultStatusLabels[status]}</option>)}
                     </select>
                   </td>
-                  <td>
-                    <input aria-label={`Баллы: ${row.athlete.full_name}`} className="score-input" inputMode="decimal" disabled={locked || draft.result_status !== "ok"}
-                      value={draft.result_status === "ok" ? draft.score : ""} onChange={(event) => set(row.application_id, { score: event.target.value })} placeholder="0" />
-                  </td>
-                </tr>
-              );
+                  {mode === "tasks" && <>
+                    {draft.marks.map((mark, index) => (
+                      <td key={index} className="mark-cell">
+                        <input aria-label={`Задача ${index + 1}: ${row.athlete.full_name}`} className="mark-input" maxLength={3} disabled={disabled}
+                          value={draft.result_status === "ok" ? mark : ""} onChange={(event) => setMark(row.application_id, index, event.target.value)} />
+                      </td>
+                    ))}
+                    <td><strong>{draft.result_status === "ok" ? solved(draft) : "—"}</strong></td>
+                    <td><input aria-label={`Время: ${row.athlete.full_name}`} className="score-input score-input--short" inputMode="numeric" disabled={disabled}
+                      value={draft.result_status === "ok" ? draft.penalty : ""} onChange={(event) => set(row.application_id, { penalty: event.target.value })} placeholder="0" /></td>
+                  </>}
+                  {mode === "product" && <>
+                    <td><strong>{draft.result_status === "ok" ? average(draft) : "—"}</strong></td>
+                    <td><button type="button" className="link-button" disabled={draft.result_status !== "ok"} onClick={() => setOpen(open === row.application_id ? null : row.application_id)}>{open === row.application_id ? "Свернуть" : "Оценки"}</button></td>
+                  </>}
+                  {mode === "score" && (
+                    <td>
+                      <input aria-label={`Баллы: ${row.athlete.full_name}`} className="score-input" inputMode="decimal" disabled={disabled}
+                        value={draft.result_status === "ok" ? draft.score : ""} onChange={(event) => set(row.application_id, { score: event.target.value })} placeholder="0" />
+                    </td>
+                  )}
+                </tr>,
+                mode === "product" && open === row.application_id && draft.result_status === "ok" && (
+                  <tr key={`${row.application_id}-judges`} className="judge-sheet">
+                    <td colSpan={6}>
+                      <table className="protocol-table">
+                        <thead><tr><th>ФИО судьи</th>{protocol.criteria.map((item) => <th key={item} className="center criterion">{item} (10%)</th>)}<th>ИТОГО</th></tr></thead>
+                        <tbody>
+                          {draft.judges.map((judge, index) => (
+                            <tr key={index}>
+                              <td><input aria-label={`Судья ${index + 1}`} disabled={locked} value={judge.judge} list="judge-panel" onChange={(event) => setJudge(row.application_id, index, { judge: event.target.value })} /></td>
+                              {judge.scores.map((score, column) => (
+                                <td key={column}><input aria-label={`${protocol.criteria[column]}, судья ${index + 1}`} className="mark-input mark-input--wide" inputMode="decimal" disabled={locked}
+                                  value={score} onChange={(event) => setJudgeScore(row.application_id, index, column, event.target.value)} /></td>
+                              ))}
+                              <td className="center">{judgeTotal(judge)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                ),
+              ];
             })}
           </tbody>
         </table>
       </div>
-      <p className="muted">Места рассчитываются автоматически по баллам внутри возрастной группы; равные баллы делят место.</p>
+      {mode === "product" && <datalist id="judge-panel">{panel.map((name) => <option key={name} value={name} />)}</datalist>}
+      <p className="muted">Места рассчитываются автоматически внутри возрастной группы; полностью равные результаты делят место.</p>
       <FormError error={error} /><Notice text={notice} />
       {!locked && <button type="button" className="button" onClick={() => void save()}>Сохранить результаты</button>}
     </>
@@ -220,7 +337,7 @@ function ProtocolTab({ competition, protocol, onChange }: { competition: Competi
         )}
       </div>
       <FormError error={error} />
-      <p><a className="button button--small button--ghost" href={fileUrl(`/competitions/${competition.id}/protocol.docx`)}>Скачать протокол .docx</a> <small className="muted">с подписями главного судьи и главного секретаря из судейской коллегии</small></p>
+      <p><a className="button button--small button--ghost" href={fileUrl(`/competitions/${competition.id}/protocol.docx`)}>Скачать протокол .docx</a> <small className="muted">по образцу Приложения № 5 к Правилам вида спорта, с подписями главного судьи и главного секретаря из судейской коллегии · <Link to="/protocol-forms">образцы протоколов</Link></small></p>
       <ProtocolTable protocol={protocol} />
     </>
   );

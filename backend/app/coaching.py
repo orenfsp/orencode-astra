@@ -31,6 +31,10 @@ athlete_role = require_roles("athlete")
 athlete_write = require_roles("athlete", csrf=True)
 
 OPEN_STATUSES = {LinkStatus.PENDING, LinkStatus.ACTIVE, LinkStatus.SUSPENDED}
+LINK_STATUS_TEXT = {
+    LinkStatus.PENDING: "ожидает подтверждения", LinkStatus.ACTIVE: "связь активна", LinkStatus.SUSPENDED: "связь приостановлена",
+    LinkStatus.ENDED: "связь завершена", LinkStatus.DECLINED: "запрос отклонён",
+}
 
 
 class SearchResult(AthleteBrief):
@@ -194,7 +198,7 @@ async def change_link_status(
     if target not in allowed.get(link.status, set()):
         raise HTTPException(status_code=409, detail="Такой переход статуса невозможен")
     _event(link, target, coach.id, payload.note)
-    await notify(db, {link.athlete_id}, "link_status", "Изменился статус связи с тренером", f"Дисциплина «{link.discipline.name}»: {target.value}.", "/cabinet")
+    await notify(db, {link.athlete_id}, "link_status", "Изменился статус связи с тренером", f"Дисциплина «{link.discipline.name}»: {LINK_STATUS_TEXT[target]}.", "/cabinet")
     await db.commit()
     return (await _read_links(db, [link]))[0]
 

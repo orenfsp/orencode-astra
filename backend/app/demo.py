@@ -22,7 +22,7 @@ from app.models import (
     Discipline, JudgePosition, Municipality, Organization, OrganizationType,
 )
 from app.profile_models import AthleteProfile, CoachProfile, Gender, Profile, TrainingStage
-from app.protocol import Entry, competition_age, fitting_groups, rank
+from app.protocol import Entry, competition_age, fitting_groups, judge_totals, rank
 from app.qualification_models import (
     AthleteRank, JudgeAssignment, JudgeCategory, JudgeCategoryRequest, JudgeProfile, RankNorm, RankRequest, RequestKind,
     RequestStatus, SportRank,
@@ -72,6 +72,46 @@ ALL_RUSSIAN_MONTH = {2024: (11, 16), 2025: (11, 22)}
 
 def at(day: date) -> datetime:
     return datetime.combine(day, time(12, 0), tzinfo=timezone.utc)
+
+
+# Сколько задач предлагается к решению (протокол по задачам); продуктовое оценивают судьи.
+TASK_COUNTS = {"algorithmic": 12, "security": 10, "ai": 8, "robotics": 6, "uav": 6}
+
+
+def protocol_details(competition: Competition, applications: list[Application], panel: list[str]) -> None:
+    """Заполнить протокол по форме Приложения № 5: отметки по задачам и время или оценки трёх судей.
+
+    Отдельный генератор случайных чисел не сдвигает остальные демо-данные.
+    """
+    rng = random.Random(competition.id * 7919)
+    for application in applications:
+        result = application.result
+        if result.result_status != ResultStatus.OK:
+            continue
+        strength = float(result.score) / 1000
+        if competition.task_count:
+            count = competition.task_count
+            solved = max(0, min(count, round(strength * count + rng.uniform(-1, 1))))
+            order = rng.sample(range(count), count)
+            marks = [""] * count
+            for index in order[:solved]:
+                attempts = rng.choice([0, 0, 0, 1, 1, 2, 3])
+                marks[index] = f"+{attempts}" if attempts else "+"
+            for index in order[solved:]:
+                marks[index] = rng.choice(["", "", f"-{rng.randint(1, 4)}"])
+            result.task_marks, result.score = marks, Decimal(solved)
+            result.penalty_minutes = sum(rng.randint(15, 70) for _ in range(solved)) + 20 * sum(int(mark[1:] or 0) for mark in marks if mark.startswith("+"))
+        else:
+            judge_scores = []
+            for name in panel:
+                scores = [max(0, min(10, round(strength * 10 + rng.uniform(-2, 2)))) for _ in range(5)]
+                judge_scores.append({"judge": name, "scores": [str(score) for score in scores]})
+            result.judge_scores, result.score = judge_scores, judge_totals(judge_scores)[2]
+    for group in competition.age_groups:
+        members = [item for item in applications if item.age_group_id == group.id]
+        places = rank([Entry(item.id, item.result.score, item.result.result_status, item.result.penalty_minutes) for item in members])
+        for item in members:
+            item.result.place = places[item.id]
 
 
 def person_name(rng: random.Random, female: bool) -> tuple[str, str, str]:
@@ -240,6 +280,7 @@ async def load_demo() -> str:
                         calendar_plan=CalendarPlan.REGIONAL if level == CompetitionLevel.REGIONAL else CalendarPlan.EKP,
                         calendar_plan_number=f"КП-{year}/{rng.randint(10, 199)}" if level == CompetitionLevel.REGIONAL else f"ЕКП № {year}-48-{rng.randint(1000, 9999)}",
                         status=CompetitionStatus.COMPLETED, is_archived=False, protocol_published_at=at(start + timedelta(days=3)),
+                        task_count=TASK_COUNTS.get(code),
                     )
                     db.add(competition)
                     await db.flush()
@@ -276,8 +317,13 @@ async def load_demo() -> str:
                         places = rank([Entry(item.id, item.result.score, item.result.result_status) for item in members])
                         for item in members:
                             item.result.place = places[item.id]
-                    for position_name, judge in zip(("Главный судья", "Главный секретарь", "Судья"), rng.sample(judges, 3)):
+                    panel = rng.sample(judges, 3)
+                    for position_name, judge in zip(("Главный судья", "Главный секретарь", "Судья"), panel):
                         db.add(JudgeAssignment(competition_id=competition.id, judge_id=judge.id, position_id=positions[position_name].id, created_at=at(start - timedelta(days=10))))
+                    protocol_details(competition, applications, [
+                        " ".join(part for part in (judge.demo_profile.last_name, judge.demo_profile.first_name, judge.demo_profile.middle_name) if part)
+                        for judge in panel
+                    ])
                     approved_by_competition.append((competition, applications))
                     competitions_done += 1
         await db.flush()

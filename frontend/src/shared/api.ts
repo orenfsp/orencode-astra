@@ -1,4 +1,8 @@
-export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://127.0.0.1:8002";
+/**
+ * Адрес backend. По умолчанию запросы идут на тот же адрес, что и сайт (/api/…): в разработке их
+ * проксирует Vite, в Docker — nginx. Так cookie сессии работают и на localhost, и на 127.0.0.1.
+ */
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {

@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-fsp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fsp}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Порт на компьютере только для подключения к базе извне (pgAdmin, локальный backend); 5433 — чтобы не конфликтовать с установленным PostgreSQL.
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,17 +24,18 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fsp}:${POSTGRES_PASSWORD:-fsp}@db:5432/${POSTGRES_DB:-fsp}
       ADMIN_REGISTRATION_CODE: ${ADMIN_REGISTRATION_CODE:-}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173}
       UPLOAD_DIR: /app/uploads
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-ФСП Оренбург <noreply@fsp-orenburg.local>}
-      APP_URL: ${APP_URL:-http://localhost:5173}
+      # Адрес сайта для ссылок в письмах и QR-кодах справок.
+      APP_URL: ${APP_URL:-http://localhost:8080}
       # Демо-данные за 2024–2026 по всем дисциплинам; 0 — чистая база.
       DEMO_DATA: ${DEMO_DATA:-1}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo-Password-2026}
     ports:
-      - "8002:8000"
+      - "${BACKEND_PORT:-8002}:8000"
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -42,11 +44,20 @@ services:
       mailpit:
         condition: service_started
 
+  # Сайт: собранный фронтенд в nginx, запросы /api уходят в backend. Открывать http://localhost:8080
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+
   # Почтовый ящик для демонстрации: все письма платформы видны на http://localhost:8025
   mailpit:
     image: axllent/mailpit:v1.21
     ports:
-      - "8025:8025"
+      - "${MAILPIT_PORT:-8025}:8025"
 
   test-db:
     image: postgres:17-alpine

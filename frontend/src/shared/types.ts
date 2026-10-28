@@ -41,9 +41,14 @@ export type Competition = {
   calendar_plan_number: string | null;
   regulation_filename: string | null;
   protocol_published_at: string | null;
+  task_count: number | null;
+  protocol_form: ProtocolForm;
   status: CompetitionStatus;
   is_archived: boolean;
 };
+
+/** Формы протоколов из Приложения № 5 к Правилам вида спорта: по задачам и по оценкам судей (продуктовое). */
+export type ProtocolForm = "tasks" | "product";
 
 export type CompetitionPayload = {
   title: string;
@@ -60,6 +65,7 @@ export type CompetitionPayload = {
   registration_end: string;
   calendar_plan: CalendarPlan;
   calendar_plan_number: string | null;
+  task_count: number | null;
   status?: CompetitionStatus;
 };
 
@@ -125,13 +131,32 @@ export type Eligibility = {
   application_status: ApplicationStatus | null;
 };
 
-export type ProtocolRow = { application_id: number; place: number | null; athlete: AthleteBrief; score: string | null; result_status: ResultStatus | null };
+export type JudgeScore = { judge: string; scores: string[]; total: string };
+
+export type ProtocolRow = {
+  application_id: number;
+  place: number | null;
+  athlete: AthleteBrief;
+  score: string | null;
+  result_status: ResultStatus | null;
+  task_marks: string[] | null;
+  solved: number | null;
+  penalty_minutes: number | null;
+  judge_scores: JudgeScore[] | null;
+  overall_scores: string[] | null;
+};
 
 export type Protocol = {
   competition: CompetitionBrief;
   location: string;
   published_at: string | null;
   is_complete: boolean;
+  form: ProtocolForm;
+  task_count: number | null;
+  criteria: string[];
+  tasks_summary: { offered: number | null; solved_all: number; solved_none: number } | null;
+  chief_judge: string | null;
+  chief_secretary: string | null;
   groups: { age_group: AgeGroup; rows: ProtocolRow[] }[];
 };
 

@@ -19,6 +19,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { MinistryPage } from "./pages/MinistryPage";
 import { NavigatorPage } from "./pages/NavigatorPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { ProtocolFormsPage } from "./pages/ProtocolFormsPage";
 import { ProtocolPage } from "./pages/ProtocolPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/competitions/:id/protocol" element={<ProtocolPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/start" element={<NavigatorPage />} />
+          <Route path="/protocol-forms" element={<ProtocolFormsPage />} />
           <Route path="/verify/:code" element={<VerifyPage />} />
           <Route path="/ministry" element={<MinistryPage />} />
           <Route path="/admin/analytics" element={<AnalyticsPage />} />
@@ -59,6 +61,7 @@ function App() {
       </main>
       <footer className="site-footer page-width">
         <span>Федерация спортивного программирования · Оренбургская область</span>
+        <Link to="/protocol-forms">Образцы протоколов</Link>
         <span>Все персональные данные в демо-версии вымышлены</span>
       </footer>
     </div>

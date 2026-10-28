@@ -53,7 +53,7 @@ class AgeGroupWrite(BaseModel):
     @model_validator(mode="after")
     def validate_range(self) -> "AgeGroupWrite":
         if self.max_age is not None and self.max_age < self.min_age:
-            raise ValueError("max_age must not be less than min_age")
+            raise ValueError("Максимальный возраст не может быть меньше минимального")
         return self
 
 
@@ -79,16 +79,17 @@ class CompetitionFields(BaseModel):
     registration_end: Date
     calendar_plan: CalendarPlan = CalendarPlan.NONE
     calendar_plan_number: str | None = Field(default=None, max_length=60)
+    task_count: int | None = Field(default=None, ge=1, le=30)
     status: CompetitionStatus = CompetitionStatus.DRAFT
 
     @model_validator(mode="after")
     def validate_rules(self) -> "CompetitionFields":
         if self.registration_start > self.registration_end:
-            raise ValueError("registration_start must not be after registration_end")
+            raise ValueError("Начало приёма заявок не может быть позже его окончания")
         if self.registration_end > self.date:
-            raise ValueError("registration_end must not be after competition date")
+            raise ValueError("Приём заявок должен закончиться не позже даты начала соревнования")
         if self.end_date < self.date:
-            raise ValueError("end_date must not be before date")
+            raise ValueError("Дата окончания не может быть раньше даты начала")
         # Всероссийские и межрегиональные — в ЕКП Минспорта, региональные — в календарный план области.
         if self.calendar_plan == CalendarPlan.EKP and self.level == CompetitionLevel.REGIONAL:
             raise ValueError("Региональное соревнование включается в календарный план области, а не в ЕКП")
@@ -119,6 +120,7 @@ class CompetitionUpdate(BaseModel):
     registration_end: Date | None = None
     calendar_plan: CalendarPlan | None = None
     calendar_plan_number: str | None = Field(default=None, max_length=60)
+    task_count: int | None = Field(default=None, ge=1, le=30)
 
 
 class CompetitionStatusUpdate(BaseModel):
@@ -145,5 +147,7 @@ class CompetitionRead(BaseModel):
     calendar_plan_number: str | None
     regulation_filename: str | None
     protocol_published_at: datetime | None
+    task_count: int | None
+    protocol_form: str
     status: CompetitionStatus
     is_archived: bool

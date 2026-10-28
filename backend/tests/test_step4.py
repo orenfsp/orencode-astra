@@ -228,7 +228,7 @@ class Step4ApiTests(unittest.TestCase):
         protocol = self.client.get(f"/api/v1/competitions/{self.ids['regional']}/protocol.docx")
         self.assertEqual(protocol.status_code, 200)
         text = docx_text(protocol.content)
-        for fragment in ("ПРОТОКОЛ РЕЗУЛЬТАТОВ", "Чемпионат области", "Лидеров Тест", "999", "Главный судья", "КП" if False else "календарный план"):
+        for fragment in ("ПРОТОКОЛ", "Приложения № 5", "Чемпионат области", "Лидеров Тест", "999", "Главный судья соревнований", "М.П.", "календарный план"):
             self.assertIn(fragment, text)
 
         self.assertEqual(self.client.get(f"/api/v1/athletes/{self.ids['leader']}/report.docx").status_code, 401)

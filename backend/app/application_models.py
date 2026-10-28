@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import AgeGroup, Base, Competition, _enum
@@ -57,6 +57,11 @@ class Result(Base):
     result_status: Mapped[ResultStatus] = mapped_column(_enum(ResultStatus, "result_status"))
     # Место рассчитывается автоматически внутри возрастной группы при сохранении результатов.
     place: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Протокол по задачам: отметки по каждой задаче («+», «+2», «-1», пусто) и время выполнения задач в минутах.
+    task_marks: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    penalty_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Протокол продуктового программирования: [{"judge": ФИО, "scores": [пять критериев]}].
+    judge_scores: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     application: Mapped[Application] = relationship(back_populates="result")

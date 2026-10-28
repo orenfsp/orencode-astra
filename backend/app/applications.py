@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -9,19 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application_models import Application, ApplicationStatus, Result, ResultStatus
 from app.application_schemas import (
-    ApplicationRead, AthleteBrief, CompetitionBrief, DecisionRequest, Eligibility, HistoryItem, ProtocolGroup,
-    ProtocolRead, ProtocolRow, ResultRead, ResultsWrite,
+    ApplicationRead, AthleteBrief, CompetitionBrief, DecisionRequest, Eligibility, HistoryItem, JudgeScoreRead, ProtocolGroup,
+    ProtocolRead, ProtocolRow, ResultRead, ResultsWrite, ResultWrite, TasksSummary,
 )
 from app.auth_models import AuthSession, User
 from app.auth_routes import current_auth_session, is_active_admin, optional_auth_session, require_roles
 from app.auth_security import utcnow
 from app.coaching_models import CoachLink, LinkStatus
 from app.database import get_session
-from app.models import AgeGroup, Competition, CompetitionStatus
+from app.models import PROTOCOL_FORM_PRODUCT, AgeGroup, Competition, CompetitionStatus
 from app.notifications import admin_ids, notify
-from app.people import athlete_briefs
+from app.people import athlete_briefs, names
 from app.profile_models import AthleteProfile, Profile
-from app.protocol import Entry, competition_age, fitting_groups, rank
+from app.protocol import PRODUCT_CRITERIA, Entry, competition_age, fitting_groups, judge_totals, normalize_mark, rank, solved_count
+from app.qualification_models import JudgeAssignment
 from app.schemas import AgeGroupRead
 
 
@@ -305,7 +307,7 @@ def _rerank(applications: list[Application]) -> None:
         if application.result is not None:
             by_group[application.age_group_id].append(application)
     for items in by_group.values():
-        places = rank([Entry(item.id, item.result.score, item.result.result_status) for item in items])
+        places = rank([Entry(item.id, item.result.score, item.result.result_status, item.result.penalty_minutes) for item in items])
         for item in items:
             item.result.place = places[item.id]
 
@@ -330,13 +332,67 @@ async def save_results(
     now = utcnow()
     for item in payload.results:
         application = approved[item.application_id]
+        details = _result_details(competition, item, application.athlete_id)
         if application.result is None:
-            application.result = Result(result_status=item.result_status, score=item.score, updated_at=now)
+            application.result = Result(result_status=item.result_status, updated_at=now, **details)
         else:
-            application.result.result_status, application.result.score, application.result.updated_at = item.result_status, item.score, now
+            application.result.result_status, application.result.updated_at = item.result_status, now
+            for field, value in details.items():
+                setattr(application.result, field, value)
     _rerank(list(approved.values()))
     await db.commit()
     return await _protocol(db, competition)
+
+
+def _result_details(competition: Competition, item: ResultWrite, athlete_id: int) -> dict:
+    """Баллы и подробности результата по форме протокола соревнования.
+
+    Протокол по задачам: баллы — число решённых задач, при равенстве выше тот, у кого меньше время.
+    Протокол продуктового программирования: баллы — среднее итогов судей по пяти критериям.
+    Без подробностей принимаются просто баллы (например, при импорте итоговой таблицы).
+    """
+    details = {"score": item.score, "task_marks": None, "penalty_minutes": None, "judge_scores": None}
+    if item.task_marks is not None:
+        if competition.protocol_form == PROTOCOL_FORM_PRODUCT:
+            raise HTTPException(status_code=422, detail="В продуктовом программировании результат — оценки судей, а не задачи")
+        if not competition.task_count:
+            raise HTTPException(status_code=422, detail="Укажите в карточке соревнования, сколько задач предложено к решению")
+        if len(item.task_marks) != competition.task_count:
+            raise HTTPException(status_code=422, detail=f"Нужны отметки по всем {competition.task_count} задачам")
+        try:
+            marks = [normalize_mark(mark) for mark in item.task_marks]
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        details |= {"score": Decimal(solved_count(marks)), "task_marks": marks, "penalty_minutes": item.penalty_minutes or 0}
+    elif item.judge_scores is not None:
+        if competition.protocol_form != PROTOCOL_FORM_PRODUCT:
+            raise HTTPException(status_code=422, detail="Оценки судей по критериям ведутся только в продуктовом программировании")
+        stored = [{"judge": judge.judge.strip(), "scores": [str(score) for score in judge.scores]} for judge in item.judge_scores]
+        details |= {"score": judge_totals(stored)[2], "judge_scores": stored}
+    elif item.result_status == ResultStatus.OK and item.score is None:
+        raise HTTPException(status_code=422, detail=f"Нет результата для заявки {item.application_id} (спортсмен #{athlete_id})")
+    elif item.result_status == ResultStatus.OK:
+        details["penalty_minutes"] = item.penalty_minutes
+    return details
+
+
+def _row(item: Application, athlete: AthleteBrief) -> ProtocolRow:
+    result = item.result
+    row = ProtocolRow(
+        application_id=item.id,
+        place=result.place if result else None,
+        athlete=athlete,
+        score=result.score if result else None,
+        result_status=result.result_status if result else None,
+        penalty_minutes=result.penalty_minutes if result else None,
+    )
+    if result is not None and result.task_marks is not None:
+        row.task_marks, row.solved = list(result.task_marks), solved_count(result.task_marks)
+    if result is not None and result.judge_scores:
+        judges, overall, _total = judge_totals(result.judge_scores)
+        row.judge_scores = [JudgeScoreRead(judge=name, scores=scores, total=total) for name, scores, total in judges]
+        row.overall_scores = overall
+    return row
 
 
 async def _protocol(db: AsyncSession, competition: Competition) -> ProtocolRead:
@@ -347,24 +403,34 @@ async def _protocol(db: AsyncSession, competition: Competition) -> ProtocolRead:
         members = [item for item in approved if item.age_group_id == group.id]
         if not members:
             continue
-        rows = [
-            ProtocolRow(
-                application_id=item.id,
-                place=item.result.place if item.result else None,
-                athlete=athletes[item.athlete_id],
-                score=item.result.score if item.result else None,
-                result_status=item.result.result_status if item.result else None,
-            )
-            for item in members
-        ]
+        rows = [_row(item, athletes[item.athlete_id]) for item in members]
         # Сначала места по порядку, затем не явившиеся/дисквалифицированные, затем без результата.
         rows.sort(key=lambda row: (row.place is None, row.place or 0, row.result_status is None, row.athlete.full_name))
         groups.append(ProtocolGroup(age_group=AgeGroupRead.model_validate(group), rows=rows))
+
+    product = competition.protocol_form == PROTOCOL_FORM_PRODUCT
+    summary = None
+    marked = [row for group in groups for row in group.rows if row.task_marks is not None]
+    if not product and marked:
+        summary = TasksSummary(
+            offered=competition.task_count,
+            solved_all=sum(1 for row in marked if competition.task_count and row.solved == competition.task_count),
+            solved_none=sum(1 for row in marked if row.solved == 0),
+        )
+    panel = list(await db.scalars(select(JudgeAssignment).where(JudgeAssignment.competition_id == competition.id)))
+    panel_names = await names(db, {item.judge_id for item in panel})
+    by_position = {item.position.name: panel_names[item.judge_id] for item in panel}
     return ProtocolRead(
         competition=CompetitionBrief.model_validate(competition),
         location=competition.location,
         published_at=competition.protocol_published_at,
         is_complete=bool(approved) and all(item.result is not None for item in approved),
+        form=competition.protocol_form,
+        task_count=competition.task_count,
+        criteria=PRODUCT_CRITERIA if product else [],
+        tasks_summary=summary,
+        chief_judge=by_position.get("Главный судья"),
+        chief_secretary=by_position.get("Главный секретарь"),
         groups=groups,
     )
 

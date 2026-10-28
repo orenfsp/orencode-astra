@@ -12,7 +12,7 @@ function emptyPayload(reference: Reference): CompetitionPayload {
   return {
     title: "", discipline_id: reference.disciplines[0]?.id ?? 0, competition_type_id: reference.competition_types.find((item) => item.is_active)?.id ?? 0,
     level: "regional", age_group_ids: [], date: "", end_date: "", location: "", description: "", format: "offline",
-    registration_start: "", registration_end: "", calendar_plan: "regional", calendar_plan_number: "", status: "draft",
+    registration_start: "", registration_end: "", calendar_plan: "regional", calendar_plan_number: "", task_count: 12, status: "draft",
   };
 }
 
@@ -21,7 +21,7 @@ function toPayload(item: Competition): CompetitionPayload {
     title: item.title, discipline_id: item.discipline.id, competition_type_id: item.competition_type.id, level: item.level,
     age_group_ids: item.age_groups.map((group) => group.id), date: item.date, end_date: item.end_date, location: item.location,
     description: item.description, format: item.format, registration_start: item.registration_start, registration_end: item.registration_end,
-    calendar_plan: item.calendar_plan, calendar_plan_number: item.calendar_plan_number ?? "",
+    calendar_plan: item.calendar_plan, calendar_plan_number: item.calendar_plan_number ?? "", task_count: item.task_count,
   };
 }
 
@@ -35,12 +35,16 @@ function CompetitionForm({ reference, editing, onSaved, onCancel }: { reference:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof CompetitionPayload>(name: K, value: CompetitionPayload[K]) => setForm((current) => ({ ...current, [name]: value }));
+  const isProduct = reference.disciplines.find((item) => item.id === form.discipline_id)?.code === "product";
   const toggleGroup = (id: number) => set("age_group_ids", form.age_group_ids.includes(id) ? form.age_group_ids.filter((item) => item !== id) : [...form.age_group_ids, id]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true); setError(null);
-    const body = { ...form, calendar_plan_number: form.calendar_plan === "none" ? null : form.calendar_plan_number || null, end_date: form.end_date || form.date };
+    const body = {
+      ...form, calendar_plan_number: form.calendar_plan === "none" ? null : form.calendar_plan_number || null, end_date: form.end_date || form.date,
+      task_count: isProduct ? null : form.task_count,
+    };
     try {
       if (editing) {
         const { status: _status, ...changes } = body;
@@ -110,6 +114,14 @@ function CompetitionForm({ reference, editing, onSaved, onCancel }: { reference:
           <select value={form.status} onChange={(event) => set("status", event.target.value as CompetitionPayload["status"])}>
             {keys(statusLabels).map((item) => <option key={item} value={item}>{statusLabels[item]}</option>)}
           </select>
+        </label>
+      )}
+      {isProduct ? (
+        <p className="form-wide muted">Протокол продуктового программирования ведётся по образцу Правил вида спорта: три судьи оценивают каждую команду по пяти критериям. <Link to="/protocol-forms">Образцы протоколов</Link></p>
+      ) : (
+        <label>Задач к решению
+          <input type="number" min={1} max={30} value={form.task_count ?? ""} onChange={(event) => set("task_count", event.target.value ? Number(event.target.value) : null)} />
+          <small>Столбцы «Задачи» в протоколе по образцу Правил вида спорта.</small>
         </label>
       )}
       <label className="form-wide">Описание<textarea required maxLength={5000} rows={4} value={form.description} onChange={(event) => set("description", event.target.value)} /></label>

@@ -306,3 +306,25 @@ details summary { cursor: pointer; }
   .card { padding: 18px; }
   .state { flex-direction: column; }
 }
+
+/* Протоколы по образцам Приложения № 5 к Правилам вида спорта */
+.protocol-table--form th, .protocol-table--form td { padding: 8px 10px; }
+.protocol-table .center { text-align: center; }
+.protocol-table th.criterion { white-space: normal; min-width: 110px; }
+.protocol-table td.mark { text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 32px; }
+.protocol-table td.mark--solved { color: var(--accent-hover); font-weight: 600; }
+.protocol-table td.mark--failed { color: var(--muted); }
+.protocol-table tbody.team-block tr:last-child td { border-bottom: 2px solid var(--line); }
+.protocol-table tr.overall td { background: var(--bg-raised); }
+.protocol-table--sample td { height: 30px; }
+.protocol-table td.mark-cell { padding: 6px 3px; }
+.mark-input { width: 42px; padding: 5px 4px; text-align: center; font-size: 13px; }
+.mark-input--wide { width: 60px; }
+.score-input--short { width: 80px; }
+.judge-sheet > td { background: var(--bg-raised); }
+.protocol-signatures { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+.protocol-signatures dt { color: var(--muted); font-size: 13px; }
+.protocol-signatures dd { margin: 4px 0 0; font-weight: 600; }
+.small-print { font-size: 13px; }
+.form-sample { margin-bottom: 20px; }
+.form-sample h2 { margin-top: 0; }
