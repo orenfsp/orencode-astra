@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { Header } from "./app/Header";
-import { SessionProvider } from "./app/session";
+import { SessionProvider, useSession } from "./app/session";
 import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { AdminJudgesPage } from "./pages/admin/AdminJudgesPage";
 import { AdminRanksPage } from "./pages/admin/AdminRanksPage";
@@ -31,11 +31,13 @@ function NotFound() {
 }
 
 function App() {
+  const { user } = useSession();
   return (
     <div className="app-shell">
       <Header />
       <main className="page-width">
-        <Routes>
+        {/* Вход под другим аккаунтом (в том числе в соседней вкладке) заново загружает данные страницы. */}
+        <Routes key={user?.id ?? "guest"}>
           <Route path="/" element={<CalendarPage />} />
           <Route path="/competitions/:id" element={<CompetitionPage />} />
           <Route path="/competitions/:id/protocol" element={<ProtocolPage />} />

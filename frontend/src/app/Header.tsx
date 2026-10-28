@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { errorText } from "../shared/api";
 import { roleLabels } from "../shared/labels";
 import type { Role } from "../shared/types";
@@ -24,7 +24,11 @@ export function Header() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
   const isAdmin = user?.active_role === "federation_admin";
+
+  // Сообщение об ошибке относится к последнему действию: при переходе или смене аккаунта его убираем.
+  useEffect(() => setError(null), [location.pathname, user?.id]);
 
   async function onRole(role: Role) {
     setError(null);
