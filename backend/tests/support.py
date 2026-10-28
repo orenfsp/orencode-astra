@@ -15,6 +15,7 @@ import app.notification_models  # noqa: F401 - registers notifications
 import app.profile_models  # noqa: F401 - registers profile tables
 import app.qualification_models  # noqa: F401 - registers judges and ranks
 import app.rating_models  # noqa: F401 - registers rating, sanctions and teams
+import app.audit_models  # noqa: F401 - registers the audit log
 from app.auth_models import Role
 from app.database import get_session
 from app.main import app

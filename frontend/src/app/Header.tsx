@@ -73,6 +73,7 @@ export function Header() {
           {isAdmin && <NavLink to="/admin/ranks">Разряды</NavLink>}
           {isAdmin && <NavLink to="/admin/judges">Судьи</NavLink>}
           {isAdmin && <NavLink to="/admin/reference">Справочники</NavLink>}
+          {isAdmin && <NavLink to="/admin/audit">Журнал</NavLink>}
         </nav>
         {error && <p className="header-error" role="alert">{error}</p>}
       </div>

@@ -56,7 +56,7 @@ main { flex: 1; padding-bottom: 64px; }
 .header-session { display: flex; align-items: center; gap: 10px; }
 .role-switch select { background: #fff; color: var(--ink); border: 1px solid #c9c9d1; border-radius: 8px; padding: 7px 10px; font-size: 13px; cursor: pointer; }
 .header-session .link-button { color: var(--ink); }
-.header-nav { display: flex; gap: 32px; padding: 14px 0 12px; overflow-x: auto; }
+.header-nav { display: flex; flex-wrap: wrap; gap: 6px 26px; padding: 14px 0 12px; }
 .header-nav a { text-decoration: none; font-size: 15px; white-space: nowrap; padding-bottom: 4px; border-bottom: 2px solid transparent; }
 .header-nav a:hover { color: var(--accent); }
 .header-nav a.active { border-color: var(--accent); }
@@ -258,6 +258,10 @@ details summary { cursor: pointer; }
 .team-form { margin-top: 8px; }
 .inline-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .inline-label select, .inline-label input { width: auto; }
+
+.nowrap { white-space: nowrap; }
+.audit-changes { font-size: 13px; }
+.audit-changes td { word-break: break-word; }
 
 /* ---------- Адаптивность ---------- */
 @media (max-width: 1000px) {

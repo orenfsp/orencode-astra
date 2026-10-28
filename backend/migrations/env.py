@@ -14,6 +14,7 @@ import app.coaching_models  # noqa: F401 - registers coach links
 import app.notification_models  # noqa: F401 - registers notifications
 import app.qualification_models  # noqa: F401 - registers judges and ranks
 import app.rating_models  # noqa: F401 - registers rating, sanctions and teams
+import app.audit_models  # noqa: F401 - registers the audit log
 
 
 config = context.config

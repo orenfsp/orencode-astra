@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed && if [ \"$DEMO_DATA\" = \"1\" ]; then python -m app.demo; fi && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
 
 FROM python:3.12-slim AS test
 
@@ -25,4 +25,4 @@ COPY tests ./tests
 
 RUN pip install --no-cache-dir ".[test]"
 
-CMD ["sh", "-c", "alembic upgrade head && alembic upgrade head && alembic check && python -m app.seed && python -m app.seed && python -m app.create_admin && python -m unittest discover -s tests -v"]
+CMD ["sh", "-c", "alembic upgrade head && alembic upgrade head && alembic check && python -m app.seed && python -m app.seed && python -m app.demo && python -m app.demo && python -m app.create_admin && python -m unittest discover -s tests -v"]

@@ -30,6 +30,11 @@ def _default_active_role(user: User) -> str:
     return sorted(roles)[0]
 
 
+def set_audit_actor(db: AsyncSession, user_id: int | None, role: str | None) -> None:
+    """Автор изменений этого запроса для журнала действий (см. app.audit)."""
+    db.sync_session.info["audit_actor"] = (user_id, role)
+
+
 def _aware(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
@@ -69,6 +74,7 @@ async def current_auth_session(
         auth_session = None
     if auth_session is None or auth_session.revoked_at is not None:
         raise HTTPException(status_code=401, detail="Сессия недействительна")
+    set_audit_actor(db, auth_session.user_id, auth_session.active_role)
     return auth_session
 
 
@@ -134,6 +140,7 @@ async def register(payload: RegisterRequest, response: Response, db: AsyncSessio
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Не удалось зарегистрировать аккаунт") from None
+    set_audit_actor(db, user.id, payload.role)
     db.add(Profile(user_id=user.id, last_name=payload.last_name, first_name=payload.first_name, middle_name=payload.middle_name, updated_at=now))
     session_token, csrf_token = new_token(), new_token()
     auth_session = AuthSession(user=user, token_hash=token_hash(session_token), csrf_hash=token_hash(csrf_token), active_role=payload.role, created_at=utcnow(), expires_at=utcnow() + SESSION_TTL)

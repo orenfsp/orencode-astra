@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.applications import router as applications_router
+from app.audit import router as audit_router
 from app.auth_routes import router as auth_router
 from app.coaching import router as coaching_router
 from app.competitions import router as competitions_router
@@ -33,7 +34,7 @@ async def lifespan(_app: FastAPI):
         await task
 
 
-app = FastAPI(title="FSP API", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="FSP API", version="0.5.0", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(reference_router)
 app.include_router(profile_router)
@@ -46,6 +47,7 @@ app.include_router(notifications_router)
 app.include_router(rating_router)
 app.include_router(reports_router)
 app.include_router(documents_router)
+app.include_router(audit_router)
 
 CORS_ORIGINS = [
     origin.strip()

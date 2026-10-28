@@ -29,6 +29,9 @@ services:
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-ФСП Оренбург <noreply@fsp-orenburg.local>}
       APP_URL: ${APP_URL:-http://localhost:5173}
+      # Демо-данные за 2024–2026 по всем дисциплинам; 0 — чистая база.
+      DEMO_DATA: ${DEMO_DATA:-1}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo-Password-2026}
     ports:
       - "8002:8000"
     volumes:
